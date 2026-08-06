@@ -15,6 +15,8 @@ sealed class LedgerException(message: String) : RuntimeException(message) {
     class AccountNotFound(message: String) : LedgerException(message)
 
     class InvalidPage(message: String) : LedgerException(message)
+
+    class MalformedAmount(message: String) : LedgerException(message)
 }
 
 fun currencyOf(code: String): Currency =

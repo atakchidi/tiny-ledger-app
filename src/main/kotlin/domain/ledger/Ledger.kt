@@ -2,46 +2,41 @@ package altak.ledger.domain.ledger
 
 import altak.ledger.domain.LedgerException
 import altak.ledger.domain.Money
-import altak.ledger.domain.TransactionManager
 import altak.ledger.domain.account.Account
-import altak.ledger.domain.account.AccountId
-import altak.ledger.domain.account.AccountRepository
-import altak.ledger.domain.account.AccountType
-import java.util.Currency
 import kotlin.time.Clock
 
+data class Posting(val entry: JournalEntry, val accounts: List<Account>)
+
 class Ledger(
-    private val accounts: AccountRepository,
-    private val entries: JournalEntryRepository,
-    private val transactions: TransactionManager,
+    private val holder: Account,
+    private val cash: Account,
     private val clock: Clock,
 ) {
-    fun open(name: String, currency: Currency): Account =
-        transactions {
-            Account(name, currency, AccountType.LIABILITY, clock).also { accounts.save(it) }
+    init {
+        if (holder.currency != cash.currency) {
+            throw LedgerException.CurrencyMismatch(
+                "${holder.name} is held in ${holder.currency.currencyCode}, " +
+                    "which ${cash.name} cannot settle",
+            )
         }
-
-    fun accountOf(id: AccountId): Account =
-        accounts.byId(id) ?: throw LedgerException.AccountNotFound("No account with id $id")
-
-    fun balanceOf(id: AccountId): Money = accountOf(id).balance
-
-    fun historyOf(id: AccountId, page: Page = Page()): List<JournalEntry> =
-        entries.byAccount(accountOf(id).id, page)
-
-    fun deposit(into: AccountId, amount: Money, description: String = "Deposit"): JournalEntry =
-        transactions { post(accountOf(into).deposit(amount, cashIn(amount.currency), clock, description)) }
-
-    fun withdraw(from: AccountId, amount: Money, description: String = "Withdrawal"): JournalEntry =
-        transactions { post(accountOf(from).withdraw(amount, cashIn(amount.currency), clock, description)) }
-
-    private fun post(entry: JournalEntry): JournalEntry {
-        entry.lines.forEach { line -> accounts.save(accountOf(line.accountId).record(line)) }
-        entries.save(entry)
-        return entry
     }
 
-    private fun cashIn(currency: Currency): Account =
-        accounts.cashIn(currency)
-            ?: Account("Cash ${currency.currencyCode}", currency, AccountType.ASSET, clock).also { accounts.save(it) }
+    fun deposit(amount: Money, description: String? = null): Posting =
+        posting(holder.deposit(amount, cash, clock, description ?: DEPOSIT))
+
+    fun withdraw(amount: Money, description: String? = null): Posting =
+        posting(holder.withdraw(amount, cash, clock, description ?: WITHDRAWAL))
+
+    private fun posting(entry: JournalEntry) = Posting(
+        entry = entry,
+        accounts = listOf(holder, cash).map { account ->
+            entry.lines.filter { it.accountId == account.id }
+                .fold(account) { updated, line -> updated.record(line, clock) }
+        },
+    )
+
+    private companion object {
+        const val DEPOSIT = "Deposit"
+        const val WITHDRAWAL = "Withdrawal"
+    }
 }

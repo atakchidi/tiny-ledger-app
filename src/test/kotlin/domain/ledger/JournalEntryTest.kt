@@ -1,6 +1,8 @@
 package altak.ledger.domain.ledger
 
-import altak.ledger.Faker
+import altak.ledger.CountingTransactionManager
+import altak.ledger.NOW
+import altak.ledger.fixedClock
 import altak.ledger.domain.LedgerException
 import altak.ledger.domain.Money
 import altak.ledger.domain.account.Account
@@ -17,7 +19,7 @@ class JournalEntryTest {
 
     private val eur = currencyOf("EUR")
     private val usd = currencyOf("USD")
-    private val clock = Faker.clock()
+    private val clock = fixedClock()
 
     private val alice = Account("Alice", eur, AccountType.LIABILITY, clock)
     private val bob = Account("Bob", eur, AccountType.LIABILITY, clock)
@@ -36,7 +38,8 @@ class JournalEntryTest {
         val entry = entryOf(credit(alice, 1000), debit(bob, 1000))
 
         assertEquals('7', entry.id.toString()[14])
-        assertEquals(Faker.NOW, entry.occurredAt)
+        assertEquals(NOW, entry.createdAt)
+        assertEquals(entry.createdAt, entry.updatedAt)
     }
 
     @Test

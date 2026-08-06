@@ -1,6 +1,8 @@
 package altak.ledger.infrastructure.persistence
 
-import altak.ledger.Faker
+import altak.ledger.CountingTransactionManager
+import altak.ledger.NOW
+import altak.ledger.fixedClock
 import altak.ledger.domain.Money
 import altak.ledger.domain.account.Account
 import altak.ledger.domain.account.AccountId
@@ -19,7 +21,7 @@ class InMemoryAccountRepositoryTest {
 
     private val eur = currencyOf("EUR")
     private val usd = currencyOf("USD")
-    private val clock = Faker.clock()
+    private val clock = fixedClock()
     private val repository = InMemoryAccountRepository()
 
     private val alice = Account("Alice", eur, AccountType.LIABILITY, clock)
@@ -61,7 +63,7 @@ class InMemoryAccountRepositoryTest {
 class InMemoryJournalEntryRepositoryTest {
 
     private val eur = currencyOf("EUR")
-    private val clock = Faker.clock()
+    private val clock = fixedClock()
     private val repository = InMemoryJournalEntryRepository()
 
     private val alice = Account("Alice", eur, AccountType.LIABILITY, clock)

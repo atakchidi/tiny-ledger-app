@@ -1,5 +1,6 @@
 package altak.ledger.domain.ledger
 
+import altak.ledger.domain.AggregateRoot
 import altak.ledger.domain.LedgerException
 import altak.ledger.domain.Money
 import altak.ledger.domain.account.AccountId
@@ -17,6 +18,8 @@ enum class Direction {
 
 @JvmInline
 value class EntryId(val value: Uuid) {
+    constructor(value: String) : this(Uuid.parse(value))
+
     override fun toString(): String = value.toString()
 }
 
@@ -35,11 +38,13 @@ data class EntryLine(
 }
 
 data class JournalEntry(
-    val id: EntryId,
+    override val id: EntryId,
     val description: String,
-    val occurredAt: Instant,
+    override val createdAt: Instant,
     val lines: List<EntryLine>,
-) {
+    override val updatedAt: Instant = createdAt,
+) : AggregateRoot<EntryId> {
+
     constructor(description: String, lines: List<EntryLine>, clock: Clock) :
         this(EntryId(Uuid.generateV7NonMonotonicAt(clock.now())), description, clock.now(), lines)
 
