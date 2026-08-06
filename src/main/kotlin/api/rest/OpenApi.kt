@@ -1,4 +1,4 @@
-package altak.api.rest
+package altak.ledger.api.rest
 
 import io.ktor.openapi.JsonSchema
 import io.ktor.openapi.JsonSchemaInference

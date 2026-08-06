@@ -1,4 +1,4 @@
-package altak.api.rest.accounts
+package altak.ledger.api.rest.accounts
 
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Pattern

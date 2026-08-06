@@ -1,10 +1,10 @@
 @file:OptIn(ExperimentalKtorApi::class)
 
-package altak.api.rest.accounts
+package altak.ledger.api.rest.accounts
 
-import altak.api.rest.RestController
-import altak.api.rest.ValidationErrorResponse
-import altak.api.rest.schemaOf
+import altak.ledger.api.rest.RestController
+import altak.ledger.api.rest.ValidationErrorResponse
+import altak.ledger.api.rest.schemaOf
 import io.ktor.http.*
 import io.ktor.server.response.respond
 import io.ktor.server.routing.openapi.describe

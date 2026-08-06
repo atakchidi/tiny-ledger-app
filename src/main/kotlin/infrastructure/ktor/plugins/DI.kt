@@ -1,9 +1,9 @@
-package altak.infrastructure.ktor.plugins
+package altak.ledger.infrastructure.ktor.plugins
 
-import altak.api.rest.RestController
-import altak.api.rest.accounts.accountController
-import altak.api.rest.greeting.greetingController
-import altak.application.service.GreetingService
+import altak.ledger.api.rest.RestController
+import altak.ledger.api.rest.accounts.accountController
+import altak.ledger.api.rest.greeting.greetingController
+import altak.ledger.application.service.GreetingService
 import io.ktor.server.application.*
 import io.ktor.server.plugins.di.*
 

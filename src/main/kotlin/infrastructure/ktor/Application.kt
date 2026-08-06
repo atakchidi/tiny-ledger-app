@@ -1,12 +1,12 @@
-package altak.infrastructure.ktor
+package altak.ledger.infrastructure.ktor
 
-import altak.infrastructure.ktor.plugins.configureAutoHeadResponse
-import altak.infrastructure.ktor.plugins.configureDependencyInjection
-import altak.infrastructure.ktor.plugins.configureHttp
-import altak.infrastructure.ktor.plugins.configureRouting
-import altak.infrastructure.ktor.plugins.configureSerialization
-import altak.infrastructure.ktor.plugins.configureStatusPages
-import altak.infrastructure.ktor.plugins.configureValidation
+import altak.ledger.infrastructure.ktor.plugins.configureAutoHeadResponse
+import altak.ledger.infrastructure.ktor.plugins.configureDependencyInjection
+import altak.ledger.infrastructure.ktor.plugins.configureHttp
+import altak.ledger.infrastructure.ktor.plugins.configureRouting
+import altak.ledger.infrastructure.ktor.plugins.configureSerialization
+import altak.ledger.infrastructure.ktor.plugins.configureStatusPages
+import altak.ledger.infrastructure.ktor.plugins.configureValidation
 import io.ktor.server.application.Application
 
 fun Application.rootModule() {

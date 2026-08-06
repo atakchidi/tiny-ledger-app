@@ -1,4 +1,4 @@
-package altak.api.rest
+package altak.ledger.api.rest
 
 import io.ktor.server.routing.Route
 

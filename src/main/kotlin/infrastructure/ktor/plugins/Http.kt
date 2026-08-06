@@ -1,4 +1,4 @@
-package altak.infrastructure.ktor.plugins
+package altak.ledger.infrastructure.ktor.plugins
 
 import io.ktor.http.*
 import io.ktor.openapi.OpenApiDoc
@@ -29,7 +29,6 @@ fun Application.configureHttp() {
         allowMethod(HttpMethod.Delete)
         allowMethod(HttpMethod.Patch)
         allowHeader(HttpHeaders.Authorization)
-        allowHeader("MyCustomHeader")
         anyHost() // @TODO: Don't do this in production if possible. Try to limit it.
     }
     install(Compression)

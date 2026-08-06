@@ -1,4 +1,4 @@
-package altak.api.rest
+package altak.ledger.api.rest
 
 import io.ktor.server.plugins.di.dependencies
 import io.ktor.server.plugins.di.resolve

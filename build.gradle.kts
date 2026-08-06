@@ -1,5 +1,3 @@
-import sun.jvmstat.monitor.MonitoredVmUtil.mainClass
-
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(ktorLibs.plugins.ktor)
@@ -10,11 +8,15 @@ group = "altak"
 version = "1.0.0-SNAPSHOT"
 
 application {
-    mainClass = "altak.MainKt"
+    mainClass = "altak.ledger.MainKt"
 }
 
 kotlin {
     jvmToolchain(21)
+
+    compilerOptions {
+        optIn.addAll("kotlin.time.ExperimentalTime", "kotlin.uuid.ExperimentalUuidApi")
+    }
 }
 dependencies {
     implementation(ktorLibs.serialization.kotlinx.json)

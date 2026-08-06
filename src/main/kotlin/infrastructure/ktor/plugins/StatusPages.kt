@@ -1,6 +1,6 @@
-package altak.infrastructure.ktor.plugins
+package altak.ledger.infrastructure.ktor.plugins
 
-import altak.api.rest.ValidationErrorResponse
+import altak.ledger.api.rest.ValidationErrorResponse
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.install

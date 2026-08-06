@@ -1,6 +1,6 @@
-package altak
+package altak.ledger
 
-import altak.infrastructure.ktor.rootModule
+import altak.ledger.infrastructure.ktor.rootModule
 import io.ktor.server.application.Application
 import io.ktor.server.engine.embeddedServer
 

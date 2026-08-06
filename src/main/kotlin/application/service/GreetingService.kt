@@ -1,4 +1,4 @@
-package altak.application.service
+package altak.ledger.application.service
 
 fun interface GreetingService {
     fun sayHello(): String

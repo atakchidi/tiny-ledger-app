@@ -1,4 +1,4 @@
-package altak.api.rest
+package altak.ledger.api.rest
 
 import kotlinx.serialization.Serializable
 

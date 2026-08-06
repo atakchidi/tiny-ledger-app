@@ -1,4 +1,4 @@
-package altak.infrastructure.ktor.plugins
+package altak.ledger.infrastructure.ktor.plugins
 
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopped

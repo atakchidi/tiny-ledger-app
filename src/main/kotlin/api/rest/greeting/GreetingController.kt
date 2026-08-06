@@ -1,11 +1,11 @@
 @file:OptIn(ExperimentalKtorApi::class)
 
-package altak.api.rest.greeting
+package altak.ledger.api.rest.greeting
 
-import altak.api.rest.RestController
-import altak.api.rest.inject
-import altak.api.rest.schemaOf
-import altak.application.service.GreetingService
+import altak.ledger.api.rest.RestController
+import altak.ledger.api.rest.inject
+import altak.ledger.api.rest.schemaOf
+import altak.ledger.application.service.GreetingService
 import io.ktor.http.*
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
