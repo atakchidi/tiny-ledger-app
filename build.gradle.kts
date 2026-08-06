@@ -1,3 +1,5 @@
+import sun.jvmstat.monitor.MonitoredVmUtil.mainClass
+
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(ktorLibs.plugins.ktor)
@@ -8,7 +10,7 @@ group = "altak"
 version = "1.0.0-SNAPSHOT"
 
 application {
-    mainClass = "io.ktor.server.netty.EngineMain"
+    mainClass = "altak.MainKt"
 }
 
 kotlin {
@@ -24,9 +26,13 @@ dependencies {
     implementation(ktorLibs.server.di)
     implementation(ktorLibs.server.netty)
     implementation(ktorLibs.server.openapi)
+    implementation(ktorLibs.server.requestValidation)
     implementation(ktorLibs.server.routingOpenapi)
+    implementation(ktorLibs.server.statusPages)
     implementation(libs.logback.classic)
-    implementation(libs.ktor.validate)
+    implementation(libs.jakarta.validation.api)
+    implementation(libs.hibernate.validator)
+    runtimeOnly(libs.expressly)
 
     testImplementation(kotlin("test"))
     testImplementation(ktorLibs.server.testHost)

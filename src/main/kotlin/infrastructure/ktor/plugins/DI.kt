@@ -1,12 +1,21 @@
-package altak.Infrastructure.Ktor.plugins
+package altak.infrastructure.ktor.plugins
 
-import altak.Application.Service.GreetingService
+import altak.api.rest.RestController
+import altak.api.rest.accounts.accountController
+import altak.api.rest.greeting.greetingController
+import altak.application.service.GreetingService
 import io.ktor.server.application.*
 import io.ktor.server.plugins.di.*
 
-// The contents of the `install` function will be used for the project template
 fun Application.configureDependencyInjection() {
     dependencies {
-        provide { GreetingService { "Hello, World!" } }
+        provide<GreetingService> { GreetingService { "Hello, World!" } }
+
+        provide<List<RestController>> {
+            listOf(
+                greetingController,
+                accountController,
+            )
+        }
     }
 }

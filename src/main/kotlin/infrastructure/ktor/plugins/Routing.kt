@@ -1,16 +1,16 @@
-package altak.Infrastructure.Ktor.plugins
+package altak.infrastructure.ktor.plugins
 
+import altak.api.rest.RestController
 import io.ktor.server.application.*
-import io.ktor.server.response.*
+import io.ktor.server.plugins.di.*
 import io.ktor.server.routing.*
 
 fun Application.configureRouting() {
+    val controllers: List<RestController> by dependencies
+
     routing {
-        get("/") {
-            call.respondText("Hello, World!")
-        }
-        get("/json/kotlinx-serialization") {
-            call.respond(mapOf("hello" to "world"))
+        controllers.forEach { controller ->
+            with(controller) { register() }
         }
     }
 }

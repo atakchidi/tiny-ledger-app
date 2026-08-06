@@ -1,10 +1,12 @@
-package altak.Infrastructure.Ktor
+package altak.infrastructure.ktor
 
-import altak.Infrastructure.Ktor.plugins.configureAutoHeadResponse
-import altak.Infrastructure.Ktor.plugins.configureDependencyInjection
-import altak.Infrastructure.Ktor.plugins.configureHttp
-import altak.Infrastructure.Ktor.plugins.configureRouting
-import altak.Infrastructure.Ktor.plugins.configureSerialization
+import altak.infrastructure.ktor.plugins.configureAutoHeadResponse
+import altak.infrastructure.ktor.plugins.configureDependencyInjection
+import altak.infrastructure.ktor.plugins.configureHttp
+import altak.infrastructure.ktor.plugins.configureRouting
+import altak.infrastructure.ktor.plugins.configureSerialization
+import altak.infrastructure.ktor.plugins.configureStatusPages
+import altak.infrastructure.ktor.plugins.configureValidation
 import io.ktor.server.application.Application
 
 fun Application.rootModule() {
@@ -12,5 +14,7 @@ fun Application.rootModule() {
     configureAutoHeadResponse()
     configureHttp()
     configureSerialization()
+    configureStatusPages()
+    configureValidation()
     configureRouting()
 }

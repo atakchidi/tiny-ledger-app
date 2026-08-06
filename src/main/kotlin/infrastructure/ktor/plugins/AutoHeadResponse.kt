@@ -1,4 +1,4 @@
-package altak.Infrastructure.Ktor.plugins
+package altak.infrastructure.ktor.plugins
 
 import io.ktor.server.application.*
 import io.ktor.server.plugins.autohead.*
