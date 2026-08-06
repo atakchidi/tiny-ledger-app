@@ -1,6 +1,12 @@
-package altak.ledger.domain
+package altak.ledger.domain.account
 
 import altak.ledger.Faker
+import altak.ledger.domain.LedgerException
+import altak.ledger.domain.Money
+import altak.ledger.domain.currencyOf
+import altak.ledger.domain.ledger.Direction
+import altak.ledger.domain.ledger.EntryLine
+import altak.ledger.domain.ledger.JournalEntry
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -14,7 +20,7 @@ class AccountTest {
     private val alice = Account("Alice", eur, AccountType.LIABILITY, clock)
     private val cash = Account("Cash EUR", eur, AccountType.ASSET, clock)
 
-    private fun JournalEntry.directionOf(account: Account) = lines.single { it.accountId == account.id }.direction
+    private fun JournalEntry.lineFor(account: Account) = lines.single { it.accountId == account.id }
 
     @Test
     fun `takes its creation time and a version 7 id from the clock`() {
@@ -23,11 +29,16 @@ class AccountTest {
     }
 
     @Test
+    fun `starts with a zero balance in its own currency`() {
+        assertEquals(Money.zero(eur), alice.balance)
+    }
+
+    @Test
     fun `a deposit increases both sides of the books`() {
         val entry = alice.deposit(Money(1000, eur), cash, clock)
 
-        assertEquals(Direction.CREDIT, entry.directionOf(alice))
-        assertEquals(Direction.DEBIT, entry.directionOf(cash))
+        assertEquals(Direction.CREDIT, entry.lineFor(alice).direction)
+        assertEquals(Direction.DEBIT, entry.lineFor(cash).direction)
         assertEquals("Deposit", entry.description)
         assertEquals(Faker.NOW, entry.occurredAt)
     }
@@ -36,16 +47,37 @@ class AccountTest {
     fun `a withdrawal decreases both sides of the books`() {
         val entry = alice.withdraw(Money(400, eur), cash, clock)
 
-        assertEquals(Direction.DEBIT, entry.directionOf(alice))
-        assertEquals(Direction.CREDIT, entry.directionOf(cash))
+        assertEquals(Direction.DEBIT, entry.lineFor(alice).direction)
+        assertEquals(Direction.CREDIT, entry.lineFor(cash).direction)
         assertEquals("Withdrawal", entry.description)
     }
 
     @Test
     fun `carries a description of the movement`() {
-        val entry = alice.deposit(Money(1000, eur), cash, clock, "Salary")
+        assertEquals("Salary", alice.deposit(Money(1000, eur), cash, clock, "Salary").description)
+    }
 
-        assertEquals("Salary", entry.description)
+    @Test
+    fun `recording a line moves the balance in the direction the line faces`() {
+        val deposited = alice.record(alice.deposit(Money(1000, eur), cash, clock).lineFor(alice))
+        val withdrawn = deposited.record(deposited.withdraw(Money(400, eur), cash, clock).lineFor(alice))
+
+        assertEquals(Money(1000, eur), deposited.balance)
+        assertEquals(Money(600, eur), withdrawn.balance)
+    }
+
+    @Test
+    fun `the cash side of a deposit rises just as the holder's does`() {
+        val entry = alice.deposit(Money(1000, eur), cash, clock)
+
+        assertEquals(Money(1000, eur), cash.record(entry.lineFor(cash)).balance)
+    }
+
+    @Test
+    fun `refuses to record a line belonging to another account`() {
+        val entry = alice.deposit(Money(1000, eur), cash, clock)
+
+        assertFailsWith<LedgerException.MalformedEntry> { alice.record(entry.lineFor(cash)) }
     }
 
     @Test

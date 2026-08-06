@@ -1,5 +1,10 @@
-package altak.ledger.domain
+package altak.ledger.domain.account
 
+import altak.ledger.domain.LedgerException
+import altak.ledger.domain.Money
+import altak.ledger.domain.ledger.Direction
+import altak.ledger.domain.ledger.EntryLine
+import altak.ledger.domain.ledger.JournalEntry
 import java.util.Currency
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -25,6 +30,7 @@ data class Account(
     val currency: Currency,
     val type: AccountType,
     val createdAt: Instant,
+    val balance: Money = Money.zero(currency),
 ) {
     constructor(name: String, currency: Currency, type: AccountType, clock: Clock) :
         this(AccountId(Uuid.generateV7NonMonotonicAt(clock.now())), name, currency, type, clock.now())
@@ -34,6 +40,13 @@ data class Account(
 
     fun withdraw(amount: Money, counterpart: Account, clock: Clock, description: String = "Withdrawal"): JournalEntry =
         JournalEntry(description, listOf(decrease(amount), counterpart.decrease(amount)), clock)
+
+    fun record(line: EntryLine): Account {
+        if (line.accountId != id) {
+            throw LedgerException.MalformedEntry("Line for account ${line.accountId} cannot be recorded on $id")
+        }
+        return copy(balance = balance + line.signedAgainst(type.normalSide))
+    }
 
     private fun increase(amount: Money): EntryLine = EntryLine(id, type.normalSide, accept(amount))
 
