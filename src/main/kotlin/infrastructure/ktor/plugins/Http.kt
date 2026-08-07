@@ -36,6 +36,7 @@ fun Application.configureHttp() {
         openAPI(path = "/") {
             source = openApiSource
             info = openApiBaseDoc.info
+            outputPath = "build/openapi"
         }
 
         // hide() keeps the spec endpoint itself out of the spec.

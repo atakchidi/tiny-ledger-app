@@ -1,46 +1,64 @@
 # ledger
 
-This project was created using the [Ktor Project Generator](https://start.ktor.io).
+A small double-entry ledger: open accounts, record deposits and withdrawals, read a balance and a
+history. Every movement is a balanced journal entry, so what the ledger holds always equals what it
+owes. Data lives in memory and is gone when the process stops.
 
-Here are some useful links to get you started:
- * [Ktor Documentation](https://ktor.io/docs/home.html)
- * [Ktor GitHub page](https://github.com/ktorio/ktor)
- * [Ktor Slack chat](https://app.slack.com/client/T09229ZC6/C0A974TJ9). [Request an invite](https://surveys.jetbrains.com/s3/kotlin-slack-sign-up).
+## Running it
 
-## Building & Running
-To build or run the project, use one of the following tasks:
+### With Docker
 
-| Task | Description |
-|------|-------------|
-| `./gradlew test`    | Run the tests     |
-| `./gradlew build`   | Build the project |
-| `./gradlew run`     | Run the server    |
-
-If the server starts successfully, you'll see the following output:
-```
-2024-12-04 14:32:45.584 [main] INFO  Application - Application started in 0.303 seconds.
-2024-12-04 14:32:45.682 [main] INFO  Application - Responding at http://0.0.0.0:8080
+```sh
+docker build -t ledger .
+docker run --rm -d -P --name ledger ledger
+docker port ledger 80          # e.g. 0.0.0.0:55007 — the address to open
 ```
 
-### API documentation
+### Without Docker
 
-The OpenAPI document is generated from the live routing tree at startup — every route a
-`RestController` registers is included without being listed anywhere.
+Needs a JDK 21 ([SDKMAN!](https://sdkman.io) is the least intrusive way to get one):
+
+```sh
+curl -s "https://get.sdkman.io" | bash && source "$HOME/.sdkman/bin/sdkman-init.sh"
+sdk install java 21.0.5-tem
+./gradlew run                  # http://localhost:8080
+```
+
+## Using it
+
+Open the server's address in a browser for the **Swagger documentation** — every endpoint, its
+parameters and its responses, generated from the live routing tree at startup so it cannot drift
+from the routes that actually exist.
 
 | Path | Description |
 |------|-------------|
 | `/` | Rendered HTML documentation |
 | `/openapi.json` | The OpenAPI document itself, as JSON |
 
-The rendered HTML is written to `docs/` on startup; it is generated output, not source.
+## Development
+
+The Gradle wrapper is committed, so from the project root (or docker container):
+
+| Task | Description |
+|------|-------------|
+| `./gradlew run`   | Run the server    |
+| `./gradlew test`  | Run the tests     |
+| `./gradlew build` | Build the project |
 
 ### Port
 
-The server listens on `8080` by default. Override it with the `PORT` environment variable:
+The server listens on `8080`, or on `80` inside the Docker image. Override it with the `PORT`
+environment variable:
 
 ```sh
 PORT=9090 ./gradlew run
+docker run --rm -e PORT=9090 -p 9090:9090 ledger
 ```
 
-A non-numeric `PORT` fails at startup rather than falling back to the default, so a typo can't
-leave the server listening somewhere unexpected.
+A non-numeric `PORT` fails at startup rather than falling back to the default, so a typo can't leave
+the server listening somewhere unexpected.
+
+## Design
+
+[docs/decisions.md](docs/decisions.md) — how the books are modelled, what is deliberately not
+enforced, and why.
