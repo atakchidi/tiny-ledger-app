@@ -6,7 +6,7 @@ import io.ktor.openapi.OpenApiInfo
 import io.ktor.server.application.*
 import io.ktor.server.plugins.compression.*
 import io.ktor.server.plugins.cors.routing.*
-import io.ktor.server.plugins.openapi.*
+import io.ktor.server.plugins.swagger.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.routing.openapi.OpenApiDocSource
@@ -33,11 +33,14 @@ fun Application.configureHttp() {
     }
     install(Compression)
     routing {
-        openAPI(path = "/") {
+        swaggerUI(path = "swagger") {
             source = openApiSource
             info = openApiBaseDoc.info
-            outputPath = "build/openapi"
         }
+
+        get("/") {
+            call.respondRedirect("/swagger")
+        }.hide()
 
         // hide() keeps the spec endpoint itself out of the spec.
         get("/openapi.json") {

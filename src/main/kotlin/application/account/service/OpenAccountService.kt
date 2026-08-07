@@ -6,11 +6,11 @@ import altak.ledger.application.account.ViewAccountDto
 import altak.ledger.application.account.toViewDto
 import altak.ledger.domain.TransactionManager
 import altak.ledger.domain.account.Account
-import altak.ledger.domain.account.AccountReference
+import altak.ledger.domain.account.AccountReference.Companion.normalized
 import altak.ledger.domain.account.AccountRepository
 import kotlin.time.Clock
 
-private val OpenAccountDto.holderReference get() = reference?.let(AccountReference::normalized)
+private val OpenAccountDto.holderReference get() = reference?.let(::normalized)
 
 class OpenAccountService(
     private val accounts: AccountRepository,

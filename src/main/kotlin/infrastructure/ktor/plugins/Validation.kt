@@ -1,6 +1,5 @@
 package altak.ledger.infrastructure.ktor.plugins
 
-import altak.ledger.api.rest.CursorResolution
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.application.install
@@ -30,9 +29,5 @@ fun Application.configureValidation() {
                 )
             }
         }
-    }
-
-    install(CursorResolution) {
-        this.validator = validator
     }
 }

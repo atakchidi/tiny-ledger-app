@@ -19,13 +19,48 @@ Withdrawal 4.00  DEBIT  Alice           (LIABILITY  -4.00)
 ```
 
 Both sides of every entry are real accounts on the books — there is no "external" placeholder — and
-the whole ledger holds to `total assets == total liabilities`, which is asserted in the tests.
+every entry balances, so the whole ledger holds to `total debits == total credits`, which is
+asserted in the tests. In balance-sheet terms that is
+`assets + expenses == liabilities + equity + revenue`; with only holders and cash in play it reduces
+to assets equalling liabilities.
 
 The alternative framing is the account holder's own books, where their account is an `ASSET` funded
 by `EQUITY` (what GnuCash does). Either is defensible; the bank's framing was chosen because a
 ledger *service* keeps money on behalf of others.
 
 The cash account for a currency is opened on demand, the first time money in that currency moves.
+
+## How a movement becomes an entry
+
+A movement names one **subject** account and an amount. Everything else is derived, by one rule:
+
+> Post the subject on the side producing the requested **effect** — increase means its own normal
+> side, decrease the opposite. Post the counterpart on the **opposite** debit/credit side. Whether
+> the counterpart's own balance rises or falls follows from *its* type.
+
+| event | subject | effect | subject side | counterpart | counterpart side | counterpart effect |
+|---|---|---|---|---|---|---|
+| deposit | holder (LIABILITY) | increase | CREDIT | Cash (ASSET) | DEBIT | increase |
+| withdrawal | holder (LIABILITY) | decrease | DEBIT | Cash (ASSET) | CREDIT | decrease |
+| fee charged | holder (LIABILITY) | decrease | DEBIT | Fee revenue (REVENUE) | CREDIT | increase |
+| interest paid | holder (LIABILITY) | increase | CREDIT | Interest expense (EXPENSE) | DEBIT | increase |
+
+Three pieces carry it, so none of them has to branch per movement:
+
+- **`AccountRole`** names a well-known account by its purpose and derives its reference, name and
+  type — `CASH` gives `CASH-EUR`, an `ASSET`. **`ChartOfAccounts`** resolves a role and currency to
+  that account, opening it if it has never been used.
+- **`MovementType`** is the rule table above: a counterpart role and an effect on the subject.
+- **`PostingFactory`** applies the rule and returns a `Posting` — the journal entry plus the accounts
+  it touches. **`PostingStore`** writes all of it, which is also how an account first used as a
+  counterpart comes into existence.
+
+Only `DEPOSIT` and `WITHDRAWAL` exist, because only those have endpoints. The last two rows are what
+extension looks like: one row in `AccountRole`, one in `MovementType`, and a use case that names it.
+Nothing in the factory, the store or the aggregates changes.
+
+`AccountType` carries all five standard categories (`ASSET`, `LIABILITY`, `EQUITY`, `REVENUE`,
+`EXPENSE`) with their normal sides, which is what makes the single rule work for any counterpart.
 
 ## Amounts
 
@@ -58,13 +93,9 @@ is a port, each application service opens exactly one, and `InMemoryTransactionM
 the work. A failure part-way through therefore leaves earlier writes in place — the one guarantee it
 cannot give.
 
-Two consequences worth stating plainly:
-
-- The **running balance** on an account is derived state written separately from the journal. A crash
-  between the two diverges them. In a database both writes are one transaction; a repair job can
-  always recompute a balance from the journal.
-- The **uniqueness check on an account reference** is check-then-save, so two concurrent opens with
-  the same reference can both pass. In a database a unique index does the real work.
+One consequence worth stating plainly: the **uniqueness check on an account reference** is
+check-then-save, so two concurrent opens with the same reference can both pass. In a database a
+unique index does the real work.
 
 ## Identity and references
 
@@ -81,13 +112,35 @@ construction, so a v4 UUID from elsewhere is rejected rather than silently looke
 
 ## Reading
 
-History and the account listing are **keyset paginated** (`Cursor(after, limit)`), not offset
+History, balances and the account listing are **keyset paginated** (`Cursor(after, limit)`), not offset
 paginated: entry ids are time-ordered, so `after` maps to `WHERE id > ? ORDER BY id LIMIT ?`, which
 an index serves directly and which cannot skip or repeat rows as the journal grows. Neither
 repository exposes an unpaged read.
 
-A balance is a column read (`accounts.byId(...).balance`), not a fold over the journal — the thing
-that would not survive millions of entries.
+**The journal answers what a balance is.** `BalancesCalculator` folds an account's entry lines up to
+a moment and returns a `Balances` value object:
+
+```kotlin
+entries.linesOf(id, until = asOf)
+    .fold(Money.zero(currency)) { running, line -> running + line.signedAgainst(type.normalSide) }
+```
+
+`GET /balances` always asks the journal, which is why `?onDate=…` falls out for free — a balance *is*
+a question about the journal at a moment, so asking it of the past costs nothing extra in code.
+
+`Account.balance` also exists, but as a **read model**, not as truth. `PostingFactory` projects each
+line onto the accounts it touches and `PostingStore` saves them, so a listing can show every holder's
+balance without folding the journal once per row. Nothing computes *from* it; it exists so
+`GET /accounts` is observable at a glance.
+
+Because it is derived, it can in principle drift — so a test asserts it does not: after a run of
+movements, every account's projected balance is compared against what `BalancesCalculator` folds
+from the journal. If the two ever disagree, the journal wins and the projection is rebuilt from it.
+
+The price of the authoritative path is honest: folding is O(entries) per account, and asking for all
+accounts folds the journal. Fine at this size, wrong at millions of entries. The standard fix keeps
+the journal authoritative and makes the projection load-bearing: roll balances up per account and
+period so a fold only ever covers the tail. That is an adapter and a job, not a change to the model.
 
 ## Errors
 
@@ -98,7 +151,7 @@ Every rejection answers with the same shape:
 ```
 
 Exceptions live next to whatever raises them (`Money.MalformedAmount`, `JournalEntry.Unbalanced`,
-`Cursor.InvalidLimit`, `Account.ForeignLine`) and share an abstract `LedgerException`, so
+`Cursor.InvalidLimit`, `AccountReference.Malformed`) and share an abstract `LedgerException`, so
 `StatusPages` needs three handlers rather than a dozen: validation and any `LedgerException` are
 `400`, `AccountNotFound` is `404`, `AccountAlreadyOpen` is `409`.
 

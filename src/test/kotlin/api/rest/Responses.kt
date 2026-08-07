@@ -8,5 +8,7 @@ import kotlinx.serialization.json.jsonPrimitive
 
 suspend fun HttpResponse.id(): String = field("id")
 
-suspend fun HttpResponse.field(name: String): String =
-    Json.parseToJsonElement(bodyAsText()).jsonObject.getValue(name).jsonPrimitive.content
+suspend fun HttpResponse.field(name: String): String = data().getValue(name).jsonPrimitive.content
+
+suspend fun HttpResponse.data() =
+    Json.parseToJsonElement(bodyAsText()).jsonObject.getValue("data").jsonObject

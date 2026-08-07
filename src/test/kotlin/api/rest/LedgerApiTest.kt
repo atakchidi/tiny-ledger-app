@@ -18,6 +18,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 
 class LedgerApiTest {
@@ -30,17 +31,26 @@ class LedgerApiTest {
             setBody("""{"name":"Alice","currency":"$currency"}""")
         }.id()
 
-    private suspend fun HttpClient.move(accountId: String, kind: String, amount: String, description: String? = null) =
-        post("/accounts/$accountId/$kind") {
+    private suspend fun HttpClient.move(accountId: String, type: String, amount: String, description: String? = null) =
+        post("/accounts/$accountId/entries") {
             contentType(ContentType.Application.Json)
             setBody(
                 description
-                    ?.let { """{"amount":"$amount","description":"$it"}""" }
-                    ?: """{"amount":"$amount"}""",
+                    ?.let { """{"type":"$type","amount":"$amount","description":"$it"}""" }
+                    ?: """{"type":"$type","amount":"$amount"}""",
             )
         }
 
-    private suspend fun HttpClient.balanceOf(accountId: String) = get("/accounts/$accountId/balance").field("amount")
+    private suspend fun HttpClient.balanceOf(accountId: String, onDate: String = "") =
+        Json.parseToJsonElement(get("/balances?account=$accountId$onDate").bodyAsText())
+            .jsonObject
+            .getValue("data")
+            .jsonArray
+            .single()
+            .jsonObject
+            .getValue("amount")
+            .jsonPrimitive
+            .content
 
     private suspend fun HttpClient.historyOf(accountId: String, query: String = "") =
         Json.parseToJsonElement(get("/accounts/$accountId/entries$query").bodyAsText()).jsonObject
@@ -50,7 +60,7 @@ class LedgerApiTest {
         startServer()
         val alice = client.openAccount()
 
-        val response = client.move(alice, "deposits", "10.50")
+        val response = client.move(alice, "DEPOSIT", "10.50")
 
         assertEquals(HttpStatusCode.Created, response.status)
         with(response.bodyAsText()) {
@@ -67,8 +77,8 @@ class LedgerApiTest {
         startServer()
         val alice = client.openAccount()
 
-        client.move(alice, "deposits", "10.50")
-        client.move(alice, "withdrawals", "4.00", "Rent")
+        client.move(alice, "DEPOSIT", "10.50")
+        client.move(alice, "WITHDRAWAL", "4.00", "Rent")
 
         assertEquals("6.50", client.balanceOf(alice))
     }
@@ -78,7 +88,7 @@ class LedgerApiTest {
         startServer()
         val alice = client.openAccount()
 
-        client.move(alice, "withdrawals", "2.50")
+        client.move(alice, "WITHDRAWAL", "2.50")
 
         assertEquals("-2.50", client.balanceOf(alice))
     }
@@ -89,33 +99,36 @@ class LedgerApiTest {
         val alice = client.openAccount()
         val bob = client.openAccount()
 
-        client.move(alice, "deposits", "10.00")
-        client.move(bob, "deposits", "2.50")
-        client.move(alice, "withdrawals", "4.00")
+        client.move(alice, "DEPOSIT", "10.00")
+        client.move(bob, "DEPOSIT", "2.50")
+        client.move(alice, "WITHDRAWAL", "4.00")
 
-        val cash = Json.parseToJsonElement(client.get("/accounts").bodyAsText())
+        val balances = Json.parseToJsonElement(client.get("/balances").bodyAsText())
             .jsonObject
-            .getValue("accounts")
+            .getValue("data")
             .jsonArray
-            .single { it.jsonObject.getValue("type").jsonPrimitive.content == "ASSET" }
-            .jsonObject
+            .map { it.jsonObject }
 
-        assertEquals("8.50", cash.getValue("balance").jsonPrimitive.content)
-        assertEquals("Cash EUR", cash.getValue("name").jsonPrimitive.content)
+        val cash = balances.single { it.getValue("reference").jsonPrimitive.content == "CASH-EUR" }
+        val owed = balances.filter { it.getValue("reference").jsonPrimitive.content.startsWith("ACC-") }
+            .sumOf { it.getValue("amount").jsonPrimitive.content.toBigDecimal() }
+
+        assertEquals("8.50", cash.getValue("amount").jsonPrimitive.content)
+        assertEquals("8.50", owed.toPlainString())
     }
 
     @Test
     fun `shows the history of an account`() = testApplication {
         startServer()
         val alice = client.openAccount()
-        val deposit = client.move(alice, "deposits", "10.00").id()
-        val withdrawal = client.move(alice, "withdrawals", "4.00").id()
+        val deposit = client.move(alice, "DEPOSIT", "10.00").id()
+        val withdrawal = client.move(alice, "WITHDRAWAL", "4.00").id()
 
         val history = client.historyOf(alice)
 
         assertEquals(
             listOf(deposit, withdrawal),
-            history.getValue("entries").jsonArray.map { it.jsonObject.getValue("id").jsonPrimitive.content },
+            history.getValue("data").jsonArray.map { it.jsonObject.getValue("id").jsonPrimitive.content },
         )
         assertNull(history["nextCursor"]?.jsonPrimitive?.contentOrNull())
     }
@@ -124,7 +137,7 @@ class LedgerApiTest {
     fun `walks the history a page at a time`() = testApplication {
         startServer()
         val alice = client.openAccount()
-        val movements = (1..3).map { client.move(alice, "deposits", "$it.00").id() }
+        val movements = (1..3).map { client.move(alice, "DEPOSIT", "$it.00").id() }
 
         val firstPage = client.historyOf(alice, "?limit=2")
         val cursor = firstPage.getValue("nextCursor").jsonPrimitive.content
@@ -140,9 +153,9 @@ class LedgerApiTest {
         startServer()
         val alice = client.openAccount()
 
-        val tooPrecise = client.move(alice, "deposits", "10.505")
-        val notANumber = client.move(alice, "deposits", "ten")
-        val nothing = client.move(alice, "deposits", "0.00")
+        val tooPrecise = client.move(alice, "DEPOSIT", "10.505")
+        val notANumber = client.move(alice, "DEPOSIT", "ten")
+        val nothing = client.move(alice, "DEPOSIT", "0.00")
 
         assertEquals(HttpStatusCode.BadRequest, tooPrecise.status)
         assertContains(tooPrecise.bodyAsText(), "decimal places")
@@ -162,11 +175,12 @@ class LedgerApiTest {
         val notANumber = client.get("/accounts/$alice/entries?limit=lots")
 
         assertEquals(HttpStatusCode.BadRequest, notAnId.status)
-        assertContains(notAnId.bodyAsText(), "is not a cursor")
+        assertContains(notAnId.bodyAsText(), "is not an identifier")
         assertEquals(HttpStatusCode.BadRequest, foreignId.status)
         assertContains(foreignId.bodyAsText(), "is not an identifier this ledger issues")
         assertEquals(HttpStatusCode.BadRequest, notANumber.status)
-        assertContains(notANumber.bodyAsText(), "is not a whole number")
+        assertContains(notANumber.bodyAsText(), "limit")
+        assertFalse(notANumber.bodyAsText().contains("JSON input"))
     }
 
     @Test
@@ -187,7 +201,7 @@ class LedgerApiTest {
     fun `has nothing to move on an account it does not keep`() = testApplication {
         startServer()
 
-        val response = client.move("not-an-account", "deposits", "10.00")
+        val response = client.move("not-an-account", "DEPOSIT", "10.00")
 
         assertEquals(HttpStatusCode.NotFound, response.status)
         assertContains(response.bodyAsText(), "not found")
@@ -195,6 +209,6 @@ class LedgerApiTest {
 }
 
 private fun kotlinx.serialization.json.JsonObject.entryIds() =
-    getValue("entries").jsonArray.map { it.jsonObject.getValue("id").jsonPrimitive.content }
+    getValue("data").jsonArray.map { it.jsonObject.getValue("id").jsonPrimitive.content }
 
 private fun kotlinx.serialization.json.JsonPrimitive.contentOrNull(): String? = content.takeIf { it != "null" }

@@ -12,6 +12,7 @@ import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.requestvalidation.RequestValidationException
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respond
+import kotlinx.serialization.SerializationException
 
 fun Application.configureStatusPages() {
     install(StatusPages) {
@@ -35,13 +36,18 @@ fun Application.configureStatusPages() {
             call.respond(HttpStatusCode.BadRequest, cause.asResponse())
         }
 
+        exception<SerializationException> { call, cause ->
+            call.respond(HttpStatusCode.BadRequest, cause.explained())
+        }
+
         exception<BadRequestException> { call, cause ->
             call.respond(HttpStatusCode.BadRequest, cause.explained())
         }
     }
 }
 
-private fun Throwable.asResponse() = ErrorResponse(listOfNotNull(message))
+// kotlinx echoes the whole input after the reason; the caller sent it, so only the reason is news.
+private fun Throwable.asResponse() = ErrorResponse(listOfNotNull(message?.substringBefore("\nJSON input:")))
 
 private fun Throwable.explained(): ErrorResponse =
     generateSequence(this) { it.cause }

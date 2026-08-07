@@ -1,4 +1,4 @@
-package altak.ledger.domain.ledger
+package altak.ledger.domain.entry
 
 import altak.ledger.CountingTransactionManager
 import altak.ledger.NOW

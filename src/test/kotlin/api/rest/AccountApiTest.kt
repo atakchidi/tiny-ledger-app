@@ -51,7 +51,7 @@ class AccountApiTest {
 
         assertEquals(HttpStatusCode.BadRequest, response.status)
         assertEquals(
-            """{"errors":["name: must not be blank","reference: must be 3 to 32 letters, digits or dashes"]}""",
+            """{"errors":["name: must not be blank","reference: must be 3 to 32 upper-case letters, digits or dashes"]}""",
             response.bodyAsText(),
         )
     }
@@ -70,18 +70,15 @@ class AccountApiTest {
     }
 
     @Test
-    fun `views an account and its balance`() = testApplication {
+    fun `views an account`() = testApplication {
         startServer()
         val id = client.openAccount().id()
 
         val account = client.get("/accounts/$id")
-        val balance = client.get("/accounts/$id/balance")
 
         assertEquals(HttpStatusCode.OK, account.status)
         assertContains(account.bodyAsText(), """"id":"$id"""")
-        assertEquals(HttpStatusCode.OK, balance.status)
-        assertContains(balance.bodyAsText(), """"amount":0.00""")
-        assertContains(balance.bodyAsText(), """"currency":"EUR"""")
+        assertContains(account.bodyAsText(), """"name":"Alice"""")
     }
 
     @Test
@@ -102,19 +99,19 @@ class AccountApiTest {
         startServer()
         client.post("/accounts") {
             contentType(ContentType.Application.Json)
-            setBody("""{"name":"Alice","currency":"EUR","reference":"acc-000123"}""")
+            setBody("""{"name":"Alice","currency":"EUR","reference":"ACC-000123"}""")
         }
 
-        val balance = client.get("/accounts/ACC-000123/balance")
+        val account = client.get("/accounts/ACC-000123")
 
-        assertEquals(HttpStatusCode.OK, balance.status)
-        assertContains(balance.bodyAsText(), """"amount":0.00""")
+        assertEquals(HttpStatusCode.OK, account.status)
+        assertContains(account.bodyAsText(), """"reference":"ACC-000123"""")
     }
 
     @Test
     fun `refuses to open a second account under the same reference`() = testApplication {
         startServer()
-        val body = """{"name":"Alice","currency":"EUR","reference":"acc-000123"}"""
+        val body = """{"name":"Alice","currency":"EUR","reference":"ACC-000123"}"""
 
         client.post("/accounts") {
             contentType(ContentType.Application.Json)
@@ -134,7 +131,7 @@ class AccountApiTest {
         startServer()
 
         val unknown = client.get("/accounts/0199ffff-0000-7000-8000-000000000000")
-        val malformed = client.get("/accounts/not-an-account/balance")
+        val malformed = client.get("/accounts/not-an-account")
 
         assertEquals(HttpStatusCode.NotFound, unknown.status)
         assertEquals(HttpStatusCode.NotFound, malformed.status)

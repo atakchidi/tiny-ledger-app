@@ -1,20 +1,25 @@
 package altak.ledger.infrastructure.ktor.plugins
 
-import altak.ledger.api.rest.RestController
-import altak.ledger.api.rest.accounts.accountController
-import altak.ledger.api.rest.ledger.ledgerController
+import altak.ledger.api.rest.controller.RestController
+import altak.ledger.api.rest.controller.accountController
+import altak.ledger.api.rest.controller.balanceController
 import altak.ledger.application.account.service.ListAccountsService
 import altak.ledger.application.account.service.OpenAccountService
 import altak.ledger.application.account.service.ViewAccountService
-import altak.ledger.application.account.service.ViewBalanceService
-import altak.ledger.application.ledger.service.DepositService
-import altak.ledger.application.ledger.service.ViewHistoryService
-import altak.ledger.application.ledger.service.WithdrawService
+import altak.ledger.application.balance.service.ListBalancesService
+import altak.ledger.application.entry.service.RecordAccountEntryService
+import altak.ledger.application.entry.service.ListAccountEntriesService
 import altak.ledger.domain.TransactionManager
 import altak.ledger.domain.account.AccountRepository
-import altak.ledger.domain.ledger.JournalEntryRepository
+import altak.ledger.domain.account.ChartOfAccounts
+import altak.ledger.domain.entry.JournalEntryRepository
+import altak.ledger.domain.entry.BalancesCalculator
+import altak.ledger.domain.entry.PostingFactory
+import altak.ledger.domain.entry.PostingStore
 import altak.ledger.infrastructure.persistence.InMemoryAccountRepository
 import altak.ledger.infrastructure.persistence.InMemoryJournalEntryRepository
+import altak.ledger.infrastructure.persistence.RepositoryChartOfAccounts
+import altak.ledger.infrastructure.persistence.RepositoryPostingStore
 import altak.ledger.infrastructure.persistence.InMemoryTransactionManager
 import jakarta.validation.Validation
 import jakarta.validation.Validator
@@ -31,15 +36,18 @@ fun Application.configureDependencyInjection() {
         provide<AccountRepository> { InMemoryAccountRepository() }
         provide<JournalEntryRepository> { InMemoryJournalEntryRepository() }
         provide<TransactionManager> { InMemoryTransactionManager() }
+        provide<ChartOfAccounts>(::RepositoryChartOfAccounts)
+        provide<PostingStore>(::RepositoryPostingStore)
+        provide(::PostingFactory)
+        provide(::BalancesCalculator)
 
-        provide<OpenAccountService> { OpenAccountService(resolve(), resolve(), resolve()) }
-        provide<ListAccountsService> { ListAccountsService(resolve(), resolve()) }
-        provide<ViewAccountService> { ViewAccountService(resolve(), resolve()) }
-        provide<ViewBalanceService> { ViewBalanceService(resolve(), resolve()) }
-        provide<ViewHistoryService> { ViewHistoryService(resolve(), resolve(), resolve()) }
-        provide<DepositService> { DepositService(resolve(), resolve(), resolve(), resolve()) }
-        provide<WithdrawService> { WithdrawService(resolve(), resolve(), resolve(), resolve()) }
+        provide(::OpenAccountService)
+        provide(::ListAccountsService)
+        provide(::ViewAccountService)
+        provide(::ListBalancesService)
+        provide(::ListAccountEntriesService)
+        provide(::RecordAccountEntryService)
 
-        provide<List<RestController>> { listOf(accountController, ledgerController) }
+        provide<List<RestController>> { listOf(accountController, balanceController) }
     }
 }

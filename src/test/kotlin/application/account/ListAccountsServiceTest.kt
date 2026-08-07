@@ -5,10 +5,9 @@ import altak.ledger.NOW
 import altak.ledger.fixedClock
 import altak.ledger.application.account.service.ListAccounts
 import altak.ledger.application.account.service.ListAccountsService
-import altak.ledger.domain.Money
 import altak.ledger.domain.account.Account
+import altak.ledger.domain.account.AccountRole
 import java.util.Currency
-import java.math.BigDecimal
 import altak.ledger.infrastructure.persistence.InMemoryAccountRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -23,23 +22,22 @@ class ListAccountsServiceTest {
 
     @Test
     fun `has nothing to list on an empty ledger`() {
-        assertEquals(emptyList(), service.execute(ListAccounts()).accounts)
+        assertEquals(emptyList(), service.execute(ListAccounts()).items)
     }
 
     @Test
     fun `lists holder accounts and the cash behind them alike`() {
         Account.forHolder("Alice", eur, clock).also(accounts::save)
-        Account.forCash(eur, clock).copy(balance = Money(1050, eur)).also(accounts::save)
+        Account.internal(AccountRole.CASH, eur, clock).also(accounts::save)
 
-        val listed = service.execute(ListAccounts()).accounts
+        val listed = service.execute(ListAccounts()).items
 
         assertEquals(setOf("Alice", "Cash EUR"), listed.map { it.name }.toSet())
-        assertEquals(BigDecimal("10.50"), listed.single { it.type == "ASSET" }.balance)
     }
 
     @Test
     fun `runs in one transaction`() {
-        service.execute(ListAccounts())
+        service.execute(ListAccounts()).items
 
         assertEquals(1, transactions.transactions)
     }

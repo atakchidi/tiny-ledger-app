@@ -26,13 +26,15 @@ sdk install java 21.0.5-tem
 
 ## Using it
 
-Open the server's address in a browser for the **Swagger documentation** — every endpoint, its
-parameters and its responses, generated from the live routing tree at startup so it cannot drift
-from the routes that actually exist.
+Open the server's address in a browser for **Swagger UI** — every endpoint with its parameters and
+responses, and a **Try it out** button on each one, so the whole ledger can be driven from the page.
+The document behind it is generated from the live routing tree, so it cannot drift from the routes
+that actually exist.
 
 | Path | Description |
 |------|-------------|
-| `/` | Rendered HTML documentation |
+| `/` | Redirects to the documentation |
+| `/swagger` | Swagger UI |
 | `/openapi.json` | The OpenAPI document itself, as JSON |
 
 ## Development

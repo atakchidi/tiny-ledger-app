@@ -1,7 +1,11 @@
 package altak.ledger.api.rest
 
+import altak.ledger.domain.Cursor
+import io.ktor.http.HttpStatusCode
 import io.ktor.openapi.JsonSchema
 import io.ktor.openapi.JsonSchemaInference
+import io.ktor.openapi.Operation
+import io.ktor.openapi.Responses
 import kotlin.reflect.typeOf
 
 /**
@@ -10,3 +14,37 @@ import kotlin.reflect.typeOf
  */
 inline fun <reified T> JsonSchemaInference.schemaOf(): JsonSchema =
     buildSchema(typeOf<T>())
+
+inline fun <reified T> Operation.Builder.accepts() {
+    requestBody {
+        required = true
+        schema = schemaOf<T>()
+    }
+}
+
+fun Operation.Builder.pages(records: String) {
+    parameters {
+        query("after") {
+            description = "The id of the last ${records.trimEnd('s')} on the previous page"
+            schema = schemaOf<String>()
+        }
+        query("limit") {
+            description = "How many $records the page holds, at most ${Cursor.MAX_LIMIT}"
+            schema = schemaOf<Int>()
+        }
+    }
+}
+
+inline fun <reified T> Responses.Builder.answers(status: HttpStatusCode, description: String) {
+    response(status.value) {
+        this.description = description
+        schema = schemaOf<T>()
+    }
+}
+
+fun Responses.Builder.refuses(status: HttpStatusCode, description: String) {
+    response(status.value) {
+        this.description = description
+        schema = schemaOf<ErrorResponse>()
+    }
+}

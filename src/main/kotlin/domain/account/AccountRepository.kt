@@ -1,7 +1,7 @@
 package altak.ledger.domain.account
 
 import altak.ledger.domain.Cursor
-import java.util.Currency
+import altak.ledger.domain.Page
 
 interface AccountRepository {
 
@@ -11,7 +11,5 @@ interface AccountRepository {
 
     fun byReference(reference: AccountReference): Account?
 
-    fun cashIn(currency: Currency): Account?
-
-    fun all(cursor: Cursor<AccountId>): List<Account>
+    fun all(cursor: Cursor<AccountId>): Page<Account>
 }

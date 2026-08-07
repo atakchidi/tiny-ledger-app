@@ -4,9 +4,7 @@ import altak.ledger.CountingTransactionManager
 import altak.ledger.NOW
 import altak.ledger.fixedClock
 import altak.ledger.application.account.service.OpenAccountService
-import altak.ledger.domain.Money
 import java.util.Currency
-import java.math.BigDecimal
 import altak.ledger.domain.account.AccountReference
 import altak.ledger.domain.account.AccountType
 import altak.ledger.infrastructure.persistence.InMemoryAccountRepository
@@ -29,7 +27,6 @@ class OpenAccountServiceTest {
         assertEquals("Alice", alice.name)
         assertEquals(eur, alice.currency)
         assertEquals("LIABILITY", alice.type)
-        assertEquals(BigDecimal("0.00"), alice.balance)
         assertEquals(NOW.toString(), alice.createdAt)
     }
 
@@ -41,7 +38,6 @@ class OpenAccountServiceTest {
 
         assertEquals("Alice", kept?.name)
         assertEquals(AccountType.LIABILITY, kept?.type)
-        assertEquals(Money.zero(eur), kept?.balance)
     }
 
     @Test
