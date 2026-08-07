@@ -12,9 +12,11 @@ class Ledger(
     private val cash: Account,
     private val clock: Clock,
 ) {
+    class CurrencyMismatch(message: String) : LedgerException(message)
+
     init {
         if (holder.currency != cash.currency) {
-            throw LedgerException.CurrencyMismatch(
+            throw CurrencyMismatch(
                 "${holder.name} is held in ${holder.currency.currencyCode}, " +
                     "which ${cash.name} cannot settle",
             )

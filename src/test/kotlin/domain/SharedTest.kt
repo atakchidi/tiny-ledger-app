@@ -1,13 +1,16 @@
 package altak.ledger.domain
 
+import java.math.BigDecimal
+import java.util.Currency
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 class SharedTest {
 
-    private val eur = currencyOf("EUR")
-    private val usd = currencyOf("USD")
+    private val eur = Currency.getInstance("EUR")
+    private val usd = Currency.getInstance("USD")
+    private val jpy = Currency.getInstance("JPY")
 
     @Test
     fun `adds amounts of the same currency`() {
@@ -21,12 +24,32 @@ class SharedTest {
 
     @Test
     fun `refuses to combine different currencies`() {
-        assertFailsWith<LedgerException.CurrencyMismatch> { Money(100, eur) + Money(100, usd) }
+        assertFailsWith<Money.CurrencyMismatch> { Money(100, eur) + Money(100, usd) }
     }
 
     @Test
-    fun `rejects an unknown currency code`() {
-        assertFailsWith<LedgerException.UnknownCurrency> { currencyOf("eur") }
-        assertFailsWith<LedgerException.UnknownCurrency> { currencyOf("XYZ") }
+    fun `takes a decimal amount into the currency's minor units`() {
+        assertEquals(Money(1050, eur), Money.of(BigDecimal("10.50"), eur))
+        assertEquals(Money(1000, eur), Money.of(BigDecimal("10"), eur))
+        assertEquals(Money(1000, jpy), Money.of(BigDecimal("1000"), jpy))
+    }
+
+    @Test
+    fun `hands an amount back in the currency's own precision`() {
+        assertEquals(BigDecimal("10.50"), Money(1050, eur).toDecimal())
+        assertEquals(BigDecimal("1000"), Money(1000, jpy).toDecimal())
+    }
+
+    @Test
+    fun `refuses an amount finer than the currency allows`() {
+        assertFailsWith<Money.MalformedAmount> { Money.of(BigDecimal("10.505"), eur) }
+        assertFailsWith<Money.MalformedAmount> { Money.of(BigDecimal("0.5"), jpy) }
+    }
+
+    @Test
+    fun `a cursor holds a sensible number of records`() {
+        assertEquals(Cursor.DEFAULT_LIMIT, Cursor<String>().limit)
+        assertFailsWith<Cursor.InvalidLimit> { Cursor<String>(limit = 0) }
+        assertFailsWith<Cursor.InvalidLimit> { Cursor<String>(limit = Cursor.MAX_LIMIT + 1) }
     }
 }

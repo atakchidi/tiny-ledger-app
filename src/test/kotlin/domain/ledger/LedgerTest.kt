@@ -3,19 +3,18 @@ package altak.ledger.domain.ledger
 import altak.ledger.CountingTransactionManager
 import altak.ledger.NOW
 import altak.ledger.fixedClock
-import altak.ledger.domain.LedgerException
 import altak.ledger.domain.Money
 import altak.ledger.domain.account.Account
 import altak.ledger.domain.account.AccountType
-import altak.ledger.domain.currencyOf
+import java.util.Currency
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 class LedgerTest {
 
-    private val eur = currencyOf("EUR")
-    private val usd = currencyOf("USD")
+    private val eur = Currency.getInstance("EUR")
+    private val usd = Currency.getInstance("USD")
     private val clock = fixedClock()
 
     private val alice = Account.forHolder("Alice", eur, clock)
@@ -67,17 +66,17 @@ class LedgerTest {
 
     @Test
     fun `refuses to settle a holder against cash in another currency`() {
-        assertFailsWith<LedgerException.CurrencyMismatch> { Ledger(alice, Account.forCash(usd, clock), clock) }
+        assertFailsWith<Ledger.CurrencyMismatch> { Ledger(alice, Account.forCash(usd, clock), clock) }
     }
 
     @Test
     fun `refuses an amount in another currency`() {
-        assertFailsWith<LedgerException.CurrencyMismatch> { ledger.deposit(Money(100, usd)) }
+        assertFailsWith<Account.CurrencyMismatch> { ledger.deposit(Money(100, usd)) }
     }
 
     @Test
     fun `refuses an amount of nothing`() {
-        assertFailsWith<LedgerException.MalformedEntry> { ledger.deposit(Money(0, eur)) }
-        assertFailsWith<LedgerException.MalformedEntry> { ledger.withdraw(Money(-1, eur)) }
+        assertFailsWith<EntryLine.NonPositiveAmount> { ledger.deposit(Money(0, eur)) }
+        assertFailsWith<EntryLine.NonPositiveAmount> { ledger.withdraw(Money(-1, eur)) }
     }
 }

@@ -1,17 +1,9 @@
 package altak.ledger.application.ledger
 
-import altak.ledger.application.shared.toDecimal
+import altak.ledger.domain.Cursor
 import altak.ledger.domain.ledger.EntryId
 import altak.ledger.domain.ledger.EntryLine
 import altak.ledger.domain.ledger.JournalEntry
-import altak.ledger.domain.ledger.Page
-
-fun String.toCursor(): EntryId =
-    try {
-        EntryId(this)
-    } catch (notAnId: IllegalArgumentException) {
-        throw InvalidCursor(this)
-    }
 
 fun JournalEntry.toViewDto() = ViewEntryDto(
     id = id.toString(),
@@ -27,7 +19,7 @@ fun EntryLine.toViewDto() = ViewEntryLineDto(
     amount = amount.toDecimal(),
 )
 
-fun List<JournalEntry>.toHistoryViewDto(page: Page) = ViewHistoryDto(
+fun List<JournalEntry>.toHistoryViewDto(cursor: Cursor<EntryId>) = ViewHistoryDto(
     entries = map { it.toViewDto() },
-    nextCursor = lastOrNull()?.id?.toString()?.takeIf { size == page.limit },
+    nextCursor = lastOrNull()?.id?.toString()?.takeIf { size == cursor.limit },
 )

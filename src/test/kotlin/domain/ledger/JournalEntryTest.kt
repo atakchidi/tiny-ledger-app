@@ -3,11 +3,8 @@ package altak.ledger.domain.ledger
 import altak.ledger.CountingTransactionManager
 import altak.ledger.NOW
 import altak.ledger.fixedClock
-import altak.ledger.domain.LedgerException
 import altak.ledger.domain.Money
 import altak.ledger.domain.account.Account
-import altak.ledger.domain.account.AccountType
-import altak.ledger.domain.currencyOf
 import java.util.Currency
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -17,13 +14,13 @@ import kotlin.test.assertTrue
 
 class JournalEntryTest {
 
-    private val eur = currencyOf("EUR")
-    private val usd = currencyOf("USD")
+    private val eur = Currency.getInstance("EUR")
+    private val usd = Currency.getInstance("USD")
     private val clock = fixedClock()
 
-    private val alice = Account("Alice", eur, AccountType.LIABILITY, clock)
-    private val bob = Account("Bob", eur, AccountType.LIABILITY, clock)
-    private val dollars = Account("Dollars", usd, AccountType.LIABILITY, clock)
+    private val alice = Account.forHolder("Alice", eur, clock)
+    private val bob = Account.forHolder("Bob", eur, clock)
+    private val dollars = Account.forHolder("Dollars", usd, clock)
 
     private fun entryOf(vararg lines: EntryLine) = JournalEntry("a movement", lines.toList(), clock)
 
@@ -59,22 +56,22 @@ class JournalEntryTest {
 
     @Test
     fun `keeps debits and credits equal`() {
-        assertFailsWith<LedgerException.UnbalancedEntry> { entryOf(credit(alice, 1000), debit(bob, 900)) }
+        assertFailsWith<JournalEntry.Unbalanced> { entryOf(credit(alice, 1000), debit(bob, 900)) }
     }
 
     @Test
     fun `refuses lines that all face the same way`() {
-        assertFailsWith<LedgerException.UnbalancedEntry> { entryOf(credit(alice, 1000), credit(bob, 1000)) }
+        assertFailsWith<JournalEntry.Unbalanced> { entryOf(credit(alice, 1000), credit(bob, 1000)) }
     }
 
     @Test
     fun `needs at least two lines`() {
-        assertFailsWith<LedgerException.MalformedEntry> { entryOf(credit(alice, 1000)) }
+        assertFailsWith<JournalEntry.TooFewLines> { entryOf(credit(alice, 1000)) }
     }
 
     @Test
     fun `cannot mix currencies`() {
-        assertFailsWith<LedgerException.CurrencyMismatch> {
+        assertFailsWith<JournalEntry.MixedCurrencies> {
             entryOf(credit(alice, 1000), debit(dollars, 1000, usd))
         }
     }

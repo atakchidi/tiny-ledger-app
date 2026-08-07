@@ -1,38 +1,50 @@
 package altak.ledger.domain
 
+import java.math.BigDecimal
 import java.util.Currency
+import kotlin.time.Instant
+import kotlin.uuid.Uuid
 
-sealed class LedgerException(message: String) : RuntimeException(message) {
+abstract class LedgerException(message: String) : RuntimeException(message)
 
-    class UnknownCurrency(message: String) : LedgerException(message)
+const val ISSUED_VERSION = 7
 
-    class UnbalancedEntry(message: String) : LedgerException(message)
+val Uuid.version: Int get() = toLongs { mostSignificantBits, _ -> ((mostSignificantBits shr 12) and 0xF).toInt() }
+
+interface AggregateRoot<ID> {
+
+    val id: ID
+
+    val createdAt: Instant
+
+    val updatedAt: Instant
+}
+
+data class Cursor<ID>(val after: ID? = null, val limit: Int = DEFAULT_LIMIT) {
+    init {
+        if (limit !in 1..MAX_LIMIT) throw InvalidLimit(limit)
+    }
+
+    class InvalidLimit(limit: Int) :
+        LedgerException("A page holds between 1 and $MAX_LIMIT records, but asked for $limit")
+
+    companion object {
+        const val DEFAULT_LIMIT = 50
+        const val MAX_LIMIT = 200
+    }
+}
+
+data class Money(val minorUnits: Long, val currency: Currency) {
 
     class CurrencyMismatch(message: String) : LedgerException(message)
 
-    class MalformedEntry(message: String) : LedgerException(message)
-
-    class AccountNotFound(message: String) : LedgerException(message)
-
-    class InvalidPage(message: String) : LedgerException(message)
-
     class MalformedAmount(message: String) : LedgerException(message)
-}
-
-fun currencyOf(code: String): Currency =
-    try {
-        Currency.getInstance(code)
-    } catch (unknown: IllegalArgumentException) {
-        throw LedgerException.UnknownCurrency("\"$code\" is not an ISO 4217 currency code")
-    }
-
-data class Money(val minorUnits: Long, val currency: Currency) {
 
     val isPositive: Boolean get() = minorUnits > 0
 
     operator fun plus(other: Money): Money {
         if (currency != other.currency) {
-            throw LedgerException.CurrencyMismatch(
+            throw CurrencyMismatch(
                 "Cannot combine ${currency.currencyCode} and ${other.currency.currencyCode} amounts",
             )
         }
@@ -41,7 +53,21 @@ data class Money(val minorUnits: Long, val currency: Currency) {
 
     operator fun unaryMinus(): Money = copy(minorUnits = -minorUnits)
 
+    fun toDecimal(): BigDecimal = BigDecimal.valueOf(minorUnits, currency.fractionDigits)
+
     companion object {
         fun zero(currency: Currency) = Money(0, currency)
+
+        fun of(amount: BigDecimal, currency: Currency): Money =
+            try {
+                Money(amount.setScale(currency.fractionDigits).unscaledValue().longValueExact(), currency)
+            } catch (tooPrecise: ArithmeticException) {
+                throw MalformedAmount(
+                    "$amount cannot be held in ${currency.currencyCode}, " +
+                        "which has ${currency.fractionDigits} decimal places",
+                )
+            }
+
+        private val Currency.fractionDigits: Int get() = defaultFractionDigits.coerceAtLeast(0)
     }
 }

@@ -1,19 +1,18 @@
 package altak.ledger.application.ledger.service
 
 import altak.ledger.application.account.AccountNotFound
-import altak.ledger.application.account.toAccountId
+import altak.ledger.application.account.byIdOrReference
 import altak.ledger.application.ledger.ViewHistoryDto
-import altak.ledger.application.ledger.toCursor
 import altak.ledger.application.ledger.toHistoryViewDto
+import altak.ledger.application.shared.CursorDto
 import altak.ledger.domain.TransactionManager
 import altak.ledger.domain.account.AccountRepository
+import altak.ledger.domain.ledger.EntryId
 import altak.ledger.domain.ledger.JournalEntryRepository
-import altak.ledger.domain.ledger.Page
 
-data class ViewHistory(val accountId: String, val after: String? = null, val limit: Int = Page.DEFAULT_LIMIT)
+data class ViewHistory(val accountId: String, val cursor: CursorDto = CursorDto())
 
-private val ViewHistory.id get() = accountId.toAccountId()
-private val ViewHistory.page get() = Page(after = after?.toCursor(), limit = limit)
+private val ViewHistory.page get() = cursor.toDomain(::EntryId)
 
 class ViewHistoryService(
     private val accounts: AccountRepository,
@@ -23,7 +22,7 @@ class ViewHistoryService(
 
     fun execute(command: ViewHistory): ViewHistoryDto = transaction {
         with(command) {
-            val holder = accounts.byId(id) ?: throw AccountNotFound(accountId)
+            val holder = accounts.byIdOrReference(accountId) ?: throw AccountNotFound(accountId)
 
             entries.byAccount(holder.id, page).toHistoryViewDto(page)
         }

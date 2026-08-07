@@ -3,17 +3,21 @@ package altak.ledger.application.ledger
 import altak.ledger.CountingTransactionManager
 import altak.ledger.application.account.AccountNotFound
 import altak.ledger.application.ledger.service.ViewHistory
+import altak.ledger.application.shared.CursorDto
 import altak.ledger.application.ledger.service.ViewHistoryService
-import altak.ledger.domain.LedgerException
+import altak.ledger.domain.Cursor
 import altak.ledger.domain.Money
 import altak.ledger.domain.account.Account
-import altak.ledger.domain.currencyOf
 import altak.ledger.domain.ledger.Direction
+import altak.ledger.domain.ledger.EntryId
 import altak.ledger.domain.ledger.EntryLine
 import altak.ledger.domain.ledger.JournalEntry
 import altak.ledger.fixedClock
 import altak.ledger.infrastructure.persistence.InMemoryAccountRepository
 import altak.ledger.infrastructure.persistence.InMemoryJournalEntryRepository
+import java.util.Currency
+import kotlin.uuid.Uuid
+import java.math.BigDecimal
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -21,7 +25,7 @@ import kotlin.test.assertNull
 
 class ViewHistoryServiceTest {
 
-    private val eur = currencyOf("EUR")
+    private val eur = Currency.getInstance("EUR")
     private val clock = fixedClock()
     private val accounts = InMemoryAccountRepository()
     private val entries = InMemoryJournalEntryRepository()
@@ -42,8 +46,8 @@ class ViewHistoryServiceTest {
             clock,
         ).also(entries::save)
 
-    private fun history(after: String? = null, limit: Int = 50) =
-        service.execute(ViewHistory(alice.id.toString(), after, limit))
+    private fun history(after: Uuid? = null, limit: Int = 50) =
+        service.execute(ViewHistory(alice.id.toString(), CursorDto(after, limit)))
 
     @Test
     fun `has nothing to show for an account that never moved`() {
@@ -60,7 +64,7 @@ class ViewHistoryServiceTest {
         val entry = history().entries.single()
 
         assertEquals("Deposit", entry.description)
-        assertEquals("10.00", entry.lines.single { it.accountId == alice.id.toString() }.amount)
+        assertEquals(BigDecimal("10.00"), entry.lines.single { it.accountId == alice.id.toString() }.amount)
         assertEquals("CREDIT", entry.lines.single { it.accountId == alice.id.toString() }.direction)
         assertEquals("DEBIT", entry.lines.single { it.accountId == cash.id.toString() }.direction)
     }
@@ -82,27 +86,28 @@ class ViewHistoryServiceTest {
 
     @Test
     fun `walks the history a page at a time`() {
-        val movements = (1..5).map { movementOf(alice, it * 100L).id.toString() }
+        val movements = (1..5).map { movementOf(alice, it * 100L).id }
 
         val firstPage = history(limit = 2)
-        val secondPage = history(after = firstPage.nextCursor, limit = 2)
-        val lastPage = history(after = secondPage.nextCursor, limit = 2)
+        val secondPage = history(after = Uuid.parse(firstPage.nextCursor!!), limit = 2)
+        val lastPage = history(after = Uuid.parse(secondPage.nextCursor!!), limit = 2)
 
-        assertEquals(movements.take(2), firstPage.entries.map { it.id })
-        assertEquals(movements.drop(2).take(2), secondPage.entries.map { it.id })
-        assertEquals(movements.drop(4), lastPage.entries.map { it.id })
-        assertEquals(movements[1], firstPage.nextCursor)
+        assertEquals(movements.take(2).map { it.toString() }, firstPage.entries.map { it.id })
+        assertEquals(movements.drop(2).take(2).map { it.toString() }, secondPage.entries.map { it.id })
+        assertEquals(movements.drop(4).map { it.toString() }, lastPage.entries.map { it.id })
+        assertEquals(movements[1].toString(), firstPage.nextCursor)
         assertNull(lastPage.nextCursor)
     }
 
     @Test
-    fun `refuses a page nobody could fill`() {
-        assertFailsWith<LedgerException.InvalidPage> { history(limit = 0) }
+    fun `refuses a page the ledger would not hand out`() {
+        assertFailsWith<Cursor.InvalidLimit> { history(limit = 0) }
+        assertFailsWith<Cursor.InvalidLimit> { history(limit = Cursor.MAX_LIMIT + 1) }
     }
 
     @Test
-    fun `refuses a cursor that is not an entry`() {
-        assertFailsWith<InvalidCursor> { history(after = "not-an-entry") }
+    fun `refuses a cursor that is not an id this ledger issued`() {
+        assertFailsWith<EntryId.Malformed> { history(after = Uuid.random()) }
     }
 
     @Test

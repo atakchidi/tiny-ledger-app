@@ -1,11 +1,11 @@
 package altak.ledger.application.ledger.service
 
 import altak.ledger.application.account.AccountNotFound
-import altak.ledger.application.account.toAccountId
+import altak.ledger.application.account.byIdOrReference
 import altak.ledger.application.ledger.MovementDto
 import altak.ledger.application.ledger.ViewEntryDto
 import altak.ledger.application.ledger.toViewDto
-import altak.ledger.application.shared.toMoney
+import altak.ledger.domain.Money
 import altak.ledger.domain.TransactionManager
 import altak.ledger.domain.account.Account
 import altak.ledger.domain.account.AccountRepository
@@ -16,9 +16,8 @@ import kotlin.time.Clock
 
 data class Deposit(val accountId: String, val movement: MovementDto)
 
-private val Deposit.id get() = accountId.toAccountId()
 private val Deposit.description get() = movement.description
-private fun Deposit.amountIn(currency: Currency) = movement.amount.toMoney(currency)
+private fun Deposit.amountIn(currency: Currency) = Money.of(movement.amount, currency)
 
 class DepositService(
     private val accounts: AccountRepository,
@@ -28,7 +27,7 @@ class DepositService(
 ) {
     fun execute(command: Deposit): ViewEntryDto = transactions {
         with(command) {
-            val holder = accounts.byId(id) ?: throw AccountNotFound(accountId)
+            val holder = accounts.byIdOrReference(accountId) ?: throw AccountNotFound(accountId)
             val cash = accounts.cashIn(holder.currency) ?: Account.forCash(holder.currency, clock)
 
             Ledger(holder, cash, clock)

@@ -2,14 +2,12 @@ package altak.ledger.application.account.service
 
 import altak.ledger.application.account.AccountNotFound
 import altak.ledger.application.account.ViewAccountDto
-import altak.ledger.application.account.toAccountId
+import altak.ledger.application.account.byIdOrReference
 import altak.ledger.application.account.toViewDto
 import altak.ledger.domain.TransactionManager
 import altak.ledger.domain.account.AccountRepository
 
 data class ViewAccount(val id: String)
-
-private val ViewAccount.accountId get() = id.toAccountId()
 
 class ViewAccountService(
     private val accounts: AccountRepository,
@@ -17,6 +15,6 @@ class ViewAccountService(
 ) {
 
     fun execute(command: ViewAccount): ViewAccountDto = transaction {
-        with(command) { accounts.byId(accountId)?.toViewDto() ?: throw AccountNotFound(id) }
+        with(command) { accounts.byIdOrReference(id)?.toViewDto() ?: throw AccountNotFound(id) }
     }
 }

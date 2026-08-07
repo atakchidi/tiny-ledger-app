@@ -1,13 +1,18 @@
 package altak.ledger.application.ledger
 
-import jakarta.validation.constraints.Pattern
+import altak.ledger.application.shared.BigDecimalSerializer
+import jakarta.validation.constraints.DecimalMin
+import jakarta.validation.constraints.Digits
 import jakarta.validation.constraints.Size
 import kotlinx.serialization.Serializable
+import java.math.BigDecimal
 
 @Serializable
 data class MovementDto(
-    @field:Pattern(regexp = "\\d+(\\.\\d+)?", message = "must be a positive decimal amount")
-    val amount: String,
+    @field:DecimalMin(value = "0", inclusive = false, message = "must be a positive amount")
+    @field:Digits(integer = 16, fraction = 4, message = "must be an amount a currency can hold")
+    @Serializable(with = BigDecimalSerializer::class)
+    val amount: BigDecimal,
 
     @field:Size(max = 140, message = "must be at most 140 characters")
     val description: String? = null,
@@ -26,7 +31,8 @@ data class ViewEntryDto(
 data class ViewEntryLineDto(
     val accountId: String,
     val direction: String,
-    val amount: String,
+    @Serializable(with = BigDecimalSerializer::class)
+    val amount: BigDecimal,
 )
 
 @Serializable

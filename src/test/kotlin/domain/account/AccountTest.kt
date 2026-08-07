@@ -3,12 +3,11 @@ package altak.ledger.domain.account
 import altak.ledger.CountingTransactionManager
 import altak.ledger.NOW
 import altak.ledger.fixedClock
-import altak.ledger.domain.LedgerException
 import altak.ledger.domain.Money
-import altak.ledger.domain.currencyOf
 import altak.ledger.domain.ledger.Direction
 import altak.ledger.domain.ledger.EntryLine
 import altak.ledger.domain.ledger.JournalEntry
+import java.util.Currency
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -16,12 +15,12 @@ import kotlin.time.Duration.Companion.hours
 
 class AccountTest {
 
-    private val eur = currencyOf("EUR")
-    private val usd = currencyOf("USD")
+    private val eur = Currency.getInstance("EUR")
+    private val usd = Currency.getInstance("USD")
     private val clock = fixedClock()
 
-    private val alice = Account("Alice", eur, AccountType.LIABILITY, clock)
-    private val cash = Account("Cash EUR", eur, AccountType.ASSET, clock)
+    private val alice = Account.forHolder("Alice", eur, clock)
+    private val cash = Account.forCash(eur, clock)
 
     private fun JournalEntry.lineFor(account: Account) = lines.single { it.accountId == account.id }
 
@@ -29,6 +28,31 @@ class AccountTest {
     fun `takes its creation time and a version 7 id from the clock`() {
         assertEquals(NOW, alice.createdAt)
         assertEquals('7', alice.id.toString()[14])
+    }
+
+    @Test
+    fun `is given a reference when the holder brings none`() {
+        assertEquals("ACC-${alice.id.value.toString().takeLast(12).uppercase()}", alice.reference.toString())
+    }
+
+    @Test
+    fun `keeps the reference the holder brought, in canonical form`() {
+        val named = Account.forHolder("Alice", eur, clock, AccountReference.normalized("  acc-000123 "))
+
+        assertEquals("ACC-000123", named.reference.toString())
+    }
+
+    @Test
+    fun `refers to cash by the currency it holds`() {
+        assertEquals("CASH-EUR", cash.reference.toString())
+    }
+
+    @Test
+    fun `refuses a reference nothing could quote back`() {
+        assertFailsWith<AccountReference.Malformed> { AccountReference.normalized("no") }
+        assertFailsWith<AccountReference.Malformed> { AccountReference.normalized("-leading-dash") }
+        assertFailsWith<AccountReference.Malformed> { AccountReference.normalized("with spaces") }
+        assertFailsWith<AccountReference.Malformed> { AccountReference.normalized("a".repeat(33)) }
     }
 
     @Test
@@ -95,7 +119,7 @@ class AccountTest {
     fun `refuses to record a line belonging to another account`() {
         val entry = alice.deposit(Money(1000, eur), cash, clock, "Deposit")
 
-        assertFailsWith<LedgerException.MalformedEntry> { alice.record(entry.lineFor(cash), clock) }
+        assertFailsWith<Account.ForeignLine> { alice.record(entry.lineFor(cash), clock) }
     }
 
     @Test
@@ -109,13 +133,13 @@ class AccountTest {
 
     @Test
     fun `refuses an amount in another currency`() {
-        assertFailsWith<LedgerException.CurrencyMismatch> { alice.deposit(Money(100, usd), cash, clock, "Deposit") }
-        assertFailsWith<LedgerException.CurrencyMismatch> { alice.withdraw(Money(100, usd), cash, clock, "Withdrawal") }
+        assertFailsWith<Account.CurrencyMismatch> { alice.deposit(Money(100, usd), cash, clock, "Deposit") }
+        assertFailsWith<Account.CurrencyMismatch> { alice.withdraw(Money(100, usd), cash, clock, "Withdrawal") }
     }
 
     @Test
     fun `refuses a non-positive amount`() {
-        assertFailsWith<LedgerException.MalformedEntry> { alice.deposit(Money(0, eur), cash, clock, "Deposit") }
-        assertFailsWith<LedgerException.MalformedEntry> { alice.withdraw(Money(-1, eur), cash, clock, "Withdrawal") }
+        assertFailsWith<EntryLine.NonPositiveAmount> { alice.deposit(Money(0, eur), cash, clock, "Deposit") }
+        assertFailsWith<EntryLine.NonPositiveAmount> { alice.withdraw(Money(-1, eur), cash, clock, "Withdrawal") }
     }
 }

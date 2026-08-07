@@ -1,9 +1,10 @@
 package altak.ledger.infrastructure.persistence
 
+import altak.ledger.domain.Cursor
 import altak.ledger.domain.account.AccountId
+import altak.ledger.domain.ledger.EntryId
 import altak.ledger.domain.ledger.JournalEntry
 import altak.ledger.domain.ledger.JournalEntryRepository
-import altak.ledger.domain.ledger.Page
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -20,10 +21,10 @@ class InMemoryJournalEntryRepository : JournalEntryRepository {
             }
     }
 
-    override fun byAccount(id: AccountId, page: Page): List<JournalEntry> {
+    override fun byAccount(id: AccountId, cursor: Cursor<EntryId>): List<JournalEntry> {
         val recorded = entriesByAccount[id] ?: return emptyList()
-        val cursor = page.after ?: return recorded.take(page.limit)
-        val position = recorded.indexOfFirst { it.id == cursor }
-        return if (position < 0) emptyList() else recorded.drop(position + 1).take(page.limit)
+        val after = cursor.after ?: return recorded.take(cursor.limit)
+        val position = recorded.indexOfFirst { it.id == after }
+        return if (position < 0) emptyList() else recorded.drop(position + 1).take(cursor.limit)
     }
 }

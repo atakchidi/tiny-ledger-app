@@ -2,27 +2,27 @@ package altak.ledger.application.ledger
 
 import altak.ledger.CountingTransactionManager
 import altak.ledger.NOW
-import altak.ledger.fixedClock
 import altak.ledger.application.account.AccountNotFound
 import altak.ledger.application.ledger.service.Deposit
 import altak.ledger.application.ledger.service.DepositService
-import altak.ledger.application.shared.MalformedAmount
-import altak.ledger.domain.LedgerException
+import altak.ledger.domain.Cursor
 import altak.ledger.domain.Money
 import altak.ledger.domain.account.Account
 import altak.ledger.domain.account.AccountType
-import altak.ledger.domain.currencyOf
-import altak.ledger.domain.ledger.Page
+import altak.ledger.domain.ledger.EntryLine
+import altak.ledger.fixedClock
 import altak.ledger.infrastructure.persistence.InMemoryAccountRepository
 import altak.ledger.infrastructure.persistence.InMemoryJournalEntryRepository
+import java.util.Currency
+import java.math.BigDecimal
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 class DepositServiceTest {
 
-    private val eur = currencyOf("EUR")
-    private val jpy = currencyOf("JPY")
+    private val eur = Currency.getInstance("EUR")
+    private val jpy = Currency.getInstance("JPY")
     private val clock = fixedClock()
     private val accounts = InMemoryAccountRepository()
     private val entries = InMemoryJournalEntryRepository()
@@ -32,7 +32,7 @@ class DepositServiceTest {
     private val alice = Account.forHolder("Alice", eur, clock).also(accounts::save)
 
     private fun deposit(amount: String, description: String? = null) =
-        service.execute(Deposit(alice.id.toString(), MovementDto(amount, description)))
+        service.execute(Deposit(alice.id.toString(), MovementDto(BigDecimal(amount), description)))
 
     private fun balanceOf(account: Account) = accounts.byId(account.id)?.balance
 
@@ -44,7 +44,7 @@ class DepositServiceTest {
 
         assertEquals("Deposit", entry.description)
         assertEquals(NOW.toString(), entry.createdAt)
-        assertEquals(listOf("10.50", "10.50"), entry.lines.map { it.amount })
+        assertEquals(listOf(BigDecimal("10.50"), BigDecimal("10.50")), entry.lines.map { it.amount })
         assertEquals("CREDIT", entry.lines.single { it.accountId == alice.id.toString() }.direction)
         assertEquals("DEBIT", entry.lines.single { it.accountId != alice.id.toString() }.direction)
     }
@@ -65,15 +65,15 @@ class DepositServiceTest {
         deposit("5.00")
 
         assertEquals(Money(1500, eur), cash()?.balance)
-        assertEquals(2, accounts.all().size)
+        assertEquals(2, accounts.all(Cursor()).size)
     }
 
     @Test
     fun `keeps the entry where both accounts can find it`() {
         val entry = deposit("10.00")
 
-        assertEquals(listOf(entry.id), entries.byAccount(alice.id, Page()).map { it.id.toString() })
-        assertEquals(listOf(entry.id), entries.byAccount(cash()!!.id, Page()).map { it.id.toString() })
+        assertEquals(listOf(entry.id), entries.byAccount(alice.id, Cursor()).map { it.id.toString() })
+        assertEquals(listOf(entry.id), entries.byAccount(cash()!!.id, Cursor()).map { it.id.toString() })
     }
 
     @Test
@@ -85,39 +85,36 @@ class DepositServiceTest {
     fun `counts amounts in the currency's own precision`() {
         val yuki = Account.forHolder("Yuki", jpy, clock).also(accounts::save)
 
-        service.execute(Deposit(yuki.id.toString(), MovementDto("1000")))
+        service.execute(Deposit(yuki.id.toString(), MovementDto(BigDecimal("1000"))))
 
         assertEquals(Money(1000, jpy), balanceOf(yuki))
     }
 
     @Test
     fun `refuses an amount finer than the currency allows`() {
-        assertFailsWith<MalformedAmount> { deposit("10.505") }
-    }
-
-    @Test
-    fun `refuses an amount that is not a number`() {
-        assertFailsWith<MalformedAmount> { deposit("ten") }
+        assertFailsWith<Money.MalformedAmount> { deposit("10.505") }
     }
 
     @Test
     fun `refuses an amount of nothing`() {
-        assertFailsWith<LedgerException.MalformedEntry> { deposit("0.00") }
+        assertFailsWith<EntryLine.NonPositiveAmount> { deposit("0.00") }
     }
 
     @Test
     fun `leaves the ledger untouched when it refuses`() {
         deposit("10.00")
 
-        assertFailsWith<LedgerException.MalformedEntry> { deposit("0.00") }
+        assertFailsWith<EntryLine.NonPositiveAmount> { deposit("0.00") }
 
         assertEquals(Money(1000, eur), balanceOf(alice))
-        assertEquals(1, entries.byAccount(alice.id, Page()).size)
+        assertEquals(1, entries.byAccount(alice.id, Cursor()).size)
     }
 
     @Test
     fun `refuses an id that names no account`() {
-        assertFailsWith<AccountNotFound> { service.execute(Deposit("not-an-account", MovementDto("10.00"))) }
+        assertFailsWith<AccountNotFound> {
+            service.execute(Deposit("not-an-account", MovementDto(BigDecimal("10.00"))))
+        }
     }
 
     @Test
