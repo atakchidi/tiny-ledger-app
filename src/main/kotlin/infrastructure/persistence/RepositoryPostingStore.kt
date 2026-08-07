@@ -1,9 +1,9 @@
 package altak.ledger.infrastructure.persistence
 
 import altak.ledger.domain.account.AccountRepository
-import altak.ledger.domain.entry.JournalEntryRepository
-import altak.ledger.domain.entry.Posting
-import altak.ledger.domain.entry.PostingStore
+import altak.ledger.domain.journal.JournalEntryRepository
+import altak.ledger.domain.journal.Posting
+import altak.ledger.domain.journal.PostingStore
 
 class RepositoryPostingStore(
     private val accounts: AccountRepository,

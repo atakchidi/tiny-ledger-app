@@ -1,10 +1,12 @@
-package altak.ledger.domain.entry
+package altak.ledger.domain.journal
 
 import altak.ledger.CountingTransactionManager
 import altak.ledger.NOW
 import altak.ledger.fixedClock
+import altak.ledger.ids
 import altak.ledger.domain.Money
 import altak.ledger.domain.account.Account
+import altak.ledger.domain.account.AccountReference
 import java.util.Currency
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -18,11 +20,11 @@ class JournalEntryTest {
     private val usd = Currency.getInstance("USD")
     private val clock = fixedClock()
 
-    private val alice = Account.forHolder("Alice", eur, clock)
-    private val bob = Account.forHolder("Bob", eur, clock)
-    private val dollars = Account.forHolder("Dollars", usd, clock)
+    private val alice = Account.forHolder("Alice", eur, ids, clock, AccountReference("ACC-Alice".uppercase()))
+    private val bob = Account.forHolder("Bob", eur, ids, clock, AccountReference("ACC-Bob".uppercase()))
+    private val dollars = Account.forHolder("Dollars", usd, ids, clock, AccountReference("ACC-Dollars".uppercase()))
 
-    private fun entryOf(vararg lines: EntryLine) = JournalEntry("a movement", lines.toList(), clock)
+    private fun entryOf(vararg lines: EntryLine) = JournalEntry("a movement", lines.toList(), ids, clock)
 
     private fun credit(account: Account, minorUnits: Long, currency: Currency = eur) =
         EntryLine(account.id, Direction.CREDIT, Money(minorUnits, currency))
@@ -52,6 +54,14 @@ class JournalEntryTest {
         val entry = entryOf(credit(alice, 600), credit(bob, 400), debit(alice, 1000))
 
         assertEquals(3, entry.lines.size)
+    }
+
+    @Test
+    fun `says what it debits and what it credits`() {
+        val entry = entryOf(credit(alice, 600), credit(bob, 400), debit(alice, 1000))
+
+        assertEquals(Money(1000, eur), entry.debited)
+        assertEquals(Money(1000, eur), entry.credited)
     }
 
     @Test

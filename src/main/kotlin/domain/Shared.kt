@@ -2,14 +2,11 @@ package altak.ledger.domain
 
 import java.math.BigDecimal
 import java.util.Currency
+import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
 abstract class LedgerException(message: String) : RuntimeException(message)
-
-const val ISSUED_VERSION = 7
-
-val Uuid.version: Int get() = toLongs { mostSignificantBits, _ -> ((mostSignificantBits shr 12) and 0xF).toInt() }
 
 interface AggregateRoot<ID> {
 
@@ -56,4 +53,8 @@ data class Money(val minorUnits: Long, val currency: Currency) {
 
         private val Currency.fractionDigits: Int get() = defaultFractionDigits.coerceAtLeast(0)
     }
+}
+
+fun interface IdGenerator {
+    fun nextId(clock: Clock): Uuid
 }

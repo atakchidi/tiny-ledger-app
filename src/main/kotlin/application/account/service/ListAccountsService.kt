@@ -8,7 +8,7 @@ import altak.ledger.domain.TransactionManager
 import altak.ledger.domain.account.AccountId
 import altak.ledger.domain.account.AccountRepository
 
-data class ListAccounts(val cursor: CursorDto = CursorDto())
+data class ListAccounts(val cursor: CursorDto)
 
 private val ListAccounts.page get() = cursor.toDomain(::AccountId)
 

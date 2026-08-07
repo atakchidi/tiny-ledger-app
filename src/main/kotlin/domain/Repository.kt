@@ -1,6 +1,6 @@
 package altak.ledger.domain
 
-data class Cursor<ID>(val after: ID? = null, val limit: Int = DEFAULT_LIMIT) {
+data class Cursor<ID>(val limit: Int, val after: ID? = null) {
     init {
         if (limit !in 1..MAX_LIMIT) throw InvalidLimit(limit)
     }
@@ -9,7 +9,6 @@ data class Cursor<ID>(val after: ID? = null, val limit: Int = DEFAULT_LIMIT) {
         LedgerException("A page holds between 1 and $MAX_LIMIT records, but asked for $limit")
 
     companion object {
-        const val DEFAULT_LIMIT = 50
         const val MAX_LIMIT = 200
     }
 }

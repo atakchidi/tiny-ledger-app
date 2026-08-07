@@ -3,10 +3,10 @@ package altak.ledger.infrastructure.persistence
 import altak.ledger.domain.Cursor
 import altak.ledger.domain.Page
 import altak.ledger.domain.account.AccountId
-import altak.ledger.domain.entry.EntryId
-import altak.ledger.domain.entry.EntryLine
-import altak.ledger.domain.entry.JournalEntry
-import altak.ledger.domain.entry.JournalEntryRepository
+import altak.ledger.domain.journal.EntryId
+import altak.ledger.domain.journal.EntryLine
+import altak.ledger.domain.journal.JournalEntry
+import altak.ledger.domain.journal.JournalEntryRepository
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Instant
 import java.util.concurrent.CopyOnWriteArrayList

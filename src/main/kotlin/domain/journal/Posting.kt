@@ -1,4 +1,4 @@
-package altak.ledger.domain.entry
+package altak.ledger.domain.journal
 
 import altak.ledger.domain.account.Account
 

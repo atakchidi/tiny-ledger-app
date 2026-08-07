@@ -13,17 +13,12 @@ import altak.ledger.api.rest.refuses
 import altak.ledger.application.account.OpenAccountDto
 import altak.ledger.application.account.ViewAccountDto
 import altak.ledger.application.account.service.ListAccounts
-import altak.ledger.application.shared.CursorDto
 import altak.ledger.application.account.service.ListAccountsService
+import altak.ledger.application.account.service.OpenAccount
 import altak.ledger.application.account.service.OpenAccountService
 import altak.ledger.application.account.service.ViewAccount
 import altak.ledger.application.account.service.ViewAccountService
-import altak.ledger.application.entry.MovementDto
-import altak.ledger.application.entry.ViewEntryDto
-import altak.ledger.application.entry.service.RecordAccountEntry
-import altak.ledger.application.entry.service.RecordAccountEntryService
-import altak.ledger.application.entry.service.ListAccountEntries
-import altak.ledger.application.entry.service.ListAccountEntriesService
+import altak.ledger.application.shared.CursorDto
 import io.ktor.http.HttpStatusCode.Companion.BadRequest
 import io.ktor.http.HttpStatusCode.Companion.Conflict
 import io.ktor.http.HttpStatusCode.Companion.Created
@@ -40,7 +35,11 @@ import io.ktor.utils.io.ExperimentalKtorApi
 val accountController = RestController {
     route("/accounts") {
         post<OpenAccountDto> { account ->
-            call.respond(Created, ApiResponse.View(inject<OpenAccountService>().execute(account)))
+            val service = inject<OpenAccountService>()
+            call.respond(
+                Created,
+                ApiResponse.View(service.execute(OpenAccount(account)))
+            )
         }.describe {
             operationId = "openAccount"
             summary = "Open an account"
@@ -56,7 +55,10 @@ val accountController = RestController {
         }
 
         get {
-            call.respond(inject<ListAccountsService>().execute(ListAccounts(call.receiveQuery<CursorDto>())).asApiResponse())
+            val service = inject<ListAccountsService>()
+            call.respond(
+                service.execute(ListAccounts(call.receiveQuery<CursorDto>())).asApiResponse()
+            )
         }.describe {
             operationId = "listAccounts"
             summary = "List accounts"
@@ -69,60 +71,20 @@ val accountController = RestController {
                 refuses(BadRequest, "The page asked for could not be filled")
             }
         }
+        get("/{id}") {
+            val service = inject<ViewAccountService>()
+            call.respond(
+                ApiResponse.View(service.execute(ViewAccount(call.pathParameters.getOrFail("id"))))
+            )
+        }.describe {
+            operationId = "viewAccount"
+            summary = "View an account"
+            description = "The account as it stands, found by its id or by the reference it is known by outside."
+            tag("accounts")
 
-        route("/{id}") {
-            get {
-                call.respond(ApiResponse.View(inject<ViewAccountService>().execute(ViewAccount(call.pathParameters.getOrFail("id")))))
-            }.describe {
-                operationId = "viewAccount"
-                summary = "View an account"
-                description = "The account as it stands, found by its id or by the reference it is known by outside."
-                tag("accounts")
-
-                responses {
-                    answers<ApiResponse.View<ViewAccountDto>>(OK, "The account as it stands")
-                    refuses(NotFound, "No account by that id")
-                }
-            }
-
-            get("/entries") {
-                call.respond(
-                    inject<ListAccountEntriesService>().execute(ListAccountEntries(call.pathParameters.getOrFail("id"), call.receiveQuery<CursorDto>())).asApiResponse()
-                )
-            }.describe {
-                operationId = "listAccountEntries"
-                summary = "List the entries of an account"
-                description = "The movements the account took part in, oldest first, a page at a time. " +
-                    "Pass the `nextCursor` of a page back as `after` to read the one behind it."
-                tag("ledger")
-                pages("entries")
-
-                responses {
-                    answers<ApiResponse.Listing<ViewEntryDto>>(OK, "A page of the account's history")
-                    refuses(BadRequest, "The page asked for could not be filled")
-                    refuses(NotFound, "No account by that id")
-                }
-            }
-
-            post<MovementDto>("/entries") { movement ->
-                val entry = inject<RecordAccountEntryService>().execute(
-                    RecordAccountEntry(call.pathParameters.getOrFail("id"), movement),
-                )
-
-                call.respond(Created, ApiResponse.View(entry))
-            }.describe {
-                operationId = "recordAccountEntry"
-                summary = "Record an entry against an account"
-                description = "A deposit raises what the ledger owes the holder and the cash it holds alike; " +
-                    "a withdrawal lowers both. The movement names which."
-                tag("ledger")
-                accepts<MovementDto>()
-
-                responses {
-                    answers<ApiResponse.View<ViewEntryDto>>(Created, "The entry the movement was recorded as")
-                    refuses(BadRequest, "The amount was not one the account could take")
-                    refuses(NotFound, "No account by that id")
-                }
+            responses {
+                answers<ApiResponse.View<ViewAccountDto>>(OK, "The account as it stands")
+                refuses(NotFound, "No account by that id")
             }
         }
     }

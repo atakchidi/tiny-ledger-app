@@ -11,12 +11,12 @@ fun String.toAccountId(): AccountId =
     }
 
 fun Account.toViewDto() = ViewAccountDto(
-    id = id.toString(),
+    id = id.value,
     reference = reference.toString(),
     name = name,
     currency = currency,
-    type = type.name,
+    type = type,
     balance = balance.toDecimal(),
-    createdAt = createdAt.toString(),
-    updatedAt = updatedAt.toString(),
+    createdAt = createdAt,
+    updatedAt = updatedAt,
 )

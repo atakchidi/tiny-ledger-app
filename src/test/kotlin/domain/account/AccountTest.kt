@@ -2,9 +2,10 @@ package altak.ledger.domain.account
 
 import altak.ledger.NOW
 import altak.ledger.domain.Money
-import altak.ledger.domain.entry.Direction
-import altak.ledger.domain.entry.EntryLine
+import altak.ledger.domain.journal.Direction
+import altak.ledger.domain.journal.EntryLine
 import altak.ledger.fixedClock
+import altak.ledger.ids
 import java.util.Currency
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -16,8 +17,8 @@ class AccountTest {
     private val usd = Currency.getInstance("USD")
     private val clock = fixedClock()
 
-    private val alice = Account.forHolder("Alice", eur, clock)
-    private val cash = Account.internal(AccountRole.CASH, eur, clock)
+    private val alice = Account.forHolder("Alice", eur, ids, clock, AccountReference("ACC-Alice".uppercase()))
+    private val cash = Account.internal(AccountRole.CASH, eur, ids, clock)
 
     @Test
     fun `takes its creation time and a version 7 id from the clock`() {
@@ -26,13 +27,8 @@ class AccountTest {
     }
 
     @Test
-    fun `is given a reference when the holder brings none`() {
-        assertEquals("ACC-${alice.id.value.toString().takeLast(12).uppercase()}", alice.reference.toString())
-    }
-
-    @Test
-    fun `keeps the reference the holder brought, in canonical form`() {
-        val named = Account.forHolder("Alice", eur, clock, AccountReference.normalized("  acc-000123 "))
+    fun `keeps the reference the holder brought`() {
+        val named = Account.forHolder("Alice", eur, ids, clock, AccountReference("ACC-000123"))
 
         assertEquals("ACC-000123", named.reference.toString())
     }
@@ -46,10 +42,10 @@ class AccountTest {
 
     @Test
     fun `refuses a reference nothing could quote back`() {
-        assertFailsWith<AccountReference.Malformed> { AccountReference.normalized("no") }
-        assertFailsWith<AccountReference.Malformed> { AccountReference.normalized("-leading-dash") }
-        assertFailsWith<AccountReference.Malformed> { AccountReference.normalized("with spaces") }
-        assertFailsWith<AccountReference.Malformed> { AccountReference.normalized("a".repeat(33)) }
+        assertFailsWith<AccountReference.Malformed> { AccountReference("no") }
+        assertFailsWith<AccountReference.Malformed> { AccountReference("-leading-dash") }
+        assertFailsWith<AccountReference.Malformed> { AccountReference("with spaces") }
+        assertFailsWith<AccountReference.Malformed> { AccountReference("a".repeat(33)) }
     }
 
     @Test

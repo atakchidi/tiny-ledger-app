@@ -48,7 +48,7 @@ class SharedTest {
 
     @Test
     fun `a cursor holds a sensible number of records`() {
-        assertEquals(Cursor.DEFAULT_LIMIT, Cursor<String>().limit)
+        assertEquals(Cursor.MAX_LIMIT, Cursor<String>(Cursor.MAX_LIMIT).limit)
         assertFailsWith<Cursor.InvalidLimit> { Cursor<String>(limit = 0) }
         assertFailsWith<Cursor.InvalidLimit> { Cursor<String>(limit = Cursor.MAX_LIMIT + 1) }
     }

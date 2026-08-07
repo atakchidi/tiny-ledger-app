@@ -1,12 +1,11 @@
 package altak.ledger.domain.account
 
 import altak.ledger.domain.AggregateRoot
+import altak.ledger.domain.IdGenerator
 import altak.ledger.domain.LedgerException
 import altak.ledger.domain.Money
-import altak.ledger.domain.ISSUED_VERSION
-import altak.ledger.domain.version
-import altak.ledger.domain.entry.Direction
-import altak.ledger.domain.entry.EntryLine
+import altak.ledger.domain.journal.Direction
+import altak.ledger.domain.journal.EntryLine
 import java.util.Currency
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -14,13 +13,8 @@ import kotlin.uuid.Uuid
 
 @JvmInline
 value class AccountId(val value: Uuid) {
-    init {
-        if (value.version != ISSUED_VERSION) throw Malformed(value.toString())
-    }
-
     constructor(value: String) : this(Uuid.parse(value))
-
-    class Malformed(id: String) : LedgerException("\"$id\" is not an identifier this ledger issues")
+    constructor(generator: IdGenerator, clock: Clock) : this(generator.nextId(clock))
 
     override fun toString(): String = value.toString()
 }
@@ -38,8 +32,6 @@ value class AccountReference(val value: String) {
 
     companion object {
         const val FORMAT = "[A-Z0-9][A-Z0-9-]{2,31}"
-
-        fun normalized(raw: String) = AccountReference(raw.trim().uppercase())
     }
 }
 
@@ -49,15 +41,28 @@ enum class AccountType(val normalSide: Direction) {
     LIABILITY(Direction.CREDIT),
     EQUITY(Direction.CREDIT),
     REVENUE(Direction.CREDIT),
+    ;
+
+    fun direction(effect: Effect): Direction = effect.sideOf(this)
 }
 
-enum class Effect { INCREASE, DECREASE }
+enum class Effect {
+    INCREASE {
+        override fun sideOf(type: AccountType) = type.normalSide
+    },
+    DECREASE {
+        override fun sideOf(type: AccountType) = type.normalSide.opposite
+    },
+    ;
+
+    abstract fun sideOf(type: AccountType): Direction
+}
 
 enum class AccountRole(val type: AccountType, val title: String, private val prefix: String) {
     CASH(AccountType.ASSET, "Cash", "CASH"),
     ;
 
-    fun referenceFor(currency: Currency) = AccountReference.normalized("$prefix-${currency.currencyCode}")
+    fun referenceFor(currency: Currency) = AccountReference("$prefix-${currency.currencyCode}")
 }
 
 fun interface ChartOfAccounts {
@@ -84,14 +89,13 @@ data class Account(
         fun forHolder(
             name: String,
             currency: Currency,
+            ids: IdGenerator,
             clock: Clock,
-            reference: AccountReference? = null,
+            reference: AccountReference,
         ): Account {
-            val id = AccountId(Uuid.generateV7NonMonotonicAt(clock.now()))
-
             return Account(
-                id = id,
-                reference = reference ?: AccountReference.normalized("ACC-${id.value.toString().takeLast(12)}"),
+                id = AccountId(ids, clock),
+                reference = reference,
                 name = name,
                 currency = currency,
                 type = AccountType.LIABILITY,
@@ -99,11 +103,9 @@ data class Account(
             )
         }
 
-        fun internal(role: AccountRole, currency: Currency, clock: Clock): Account {
-            val id = AccountId(Uuid.generateV7NonMonotonicAt(clock.now()))
-
+        fun internal(role: AccountRole, currency: Currency, ids: IdGenerator, clock: Clock): Account {
             return Account(
-                id = id,
+                id = AccountId(ids, clock),
                 reference = role.referenceFor(currency),
                 name = "${role.title} ${currency.currencyCode}",
                 currency = currency,
@@ -113,8 +115,7 @@ data class Account(
         }
     }
 
-    fun sideFor(effect: Effect): Direction =
-        if (effect == Effect.INCREASE) type.normalSide else type.normalSide.opposite
+    fun sideFor(effect: Effect): Direction = type.direction(effect)
 
     fun line(side: Direction, amount: Money): EntryLine = EntryLine(id, side, accept(amount))
 

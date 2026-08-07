@@ -1,5 +1,6 @@
 package altak.ledger.infrastructure.persistence
 
+import altak.ledger.domain.IdGenerator
 import altak.ledger.domain.account.Account
 import altak.ledger.domain.account.AccountRepository
 import altak.ledger.domain.account.AccountRole
@@ -9,9 +10,10 @@ import kotlin.time.Clock
 
 class RepositoryChartOfAccounts(
     private val accounts: AccountRepository,
+    private val ids: IdGenerator,
     private val clock: Clock,
 ) : ChartOfAccounts {
 
     override fun of(role: AccountRole, currency: Currency): Account =
-        accounts.byReference(role.referenceFor(currency)) ?: Account.internal(role, currency, clock)
+        accounts.byReference(role.referenceFor(currency)) ?: Account.internal(role, currency, ids, clock)
 }

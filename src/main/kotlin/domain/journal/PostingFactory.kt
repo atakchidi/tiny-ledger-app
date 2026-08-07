@@ -1,5 +1,6 @@
-package altak.ledger.domain.entry
+package altak.ledger.domain.journal
 
+import altak.ledger.domain.IdGenerator
 import altak.ledger.domain.Money
 import altak.ledger.domain.account.Account
 import altak.ledger.domain.account.AccountRole
@@ -14,6 +15,7 @@ enum class MovementType(val counterpart: AccountRole, val effect: Effect, val de
 
 class PostingFactory(
     private val chart: ChartOfAccounts,
+    private val ids: IdGenerator,
     private val clock: Clock,
 ) {
     fun create(subject: Account, movement: MovementType, amount: Money, description: String? = null): Posting {
@@ -23,6 +25,7 @@ class PostingFactory(
         val entry = JournalEntry(
             description = description ?: movement.description,
             lines = listOf(subject.line(side, amount), counterpart.line(side.opposite, amount)),
+            ids = ids,
             clock = clock,
         )
 

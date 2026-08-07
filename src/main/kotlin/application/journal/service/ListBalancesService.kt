@@ -1,20 +1,18 @@
-package altak.ledger.application.balance.service
+package altak.ledger.application.journal.service
 
 import altak.ledger.application.account.AccountNotFound
-import altak.ledger.application.balance.BalanceQueryDto
-import altak.ledger.application.balance.ViewBalanceDto
 import altak.ledger.application.account.byIdOrReference
-import altak.ledger.application.balance.toViewDto
+import altak.ledger.application.journal.BalanceQueryDto
+import altak.ledger.application.journal.toViewDto
 import altak.ledger.application.shared.CursorDto
-import altak.ledger.domain.Page
 import altak.ledger.domain.TransactionManager
 import altak.ledger.domain.account.AccountId
 import altak.ledger.domain.account.AccountRepository
-import altak.ledger.domain.entry.BalanceQuery
-import altak.ledger.domain.entry.BalancesCalculator
+import altak.ledger.domain.journal.BalanceQuery
+import altak.ledger.domain.journal.BalancesCalculator
 import kotlin.time.Clock
 
-data class ListBalances(val query: BalanceQueryDto = BalanceQueryDto(), val cursor: CursorDto = CursorDto())
+data class ListBalances(val query: BalanceQueryDto, val cursor: CursorDto)
 
 private val ListBalances.page get() = cursor.toDomain(::AccountId)
 

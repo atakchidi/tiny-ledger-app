@@ -1,11 +1,13 @@
-package altak.ledger.domain.entry
+package altak.ledger.domain.journal
 
 import altak.ledger.NOW
 import altak.ledger.domain.Cursor
 import altak.ledger.domain.Money
 import altak.ledger.domain.account.Account
+import altak.ledger.domain.account.AccountReference
 import altak.ledger.domain.account.AccountRole
 import altak.ledger.fixedClock
+import altak.ledger.ids
 import altak.ledger.infrastructure.persistence.InMemoryAccountRepository
 import altak.ledger.infrastructure.persistence.InMemoryJournalEntryRepository
 import altak.ledger.infrastructure.persistence.RepositoryChartOfAccounts
@@ -25,18 +27,18 @@ class BalancesCalculatorTest {
     private val store = RepositoryPostingStore(accounts, entries)
     private val calculator = BalancesCalculator(accounts, entries)
 
-    private val alice = Account.forHolder("Alice", eur, fixedClock()).also(accounts::save)
-    private val bob = Account.forHolder("Bob", eur, fixedClock()).also(accounts::save)
+    private val alice = Account.forHolder("Alice", eur, ids, fixedClock(), AccountReference("ACC-Alice".uppercase())).also(accounts::save)
+    private val bob = Account.forHolder("Bob", eur, ids, fixedClock(), AccountReference("ACC-Bob".uppercase())).also(accounts::save)
 
     private fun record(account: Account, movement: MovementType, minorUnits: Long, at: Instant) {
         val clock = fixedClock(at)
-        val chart = RepositoryChartOfAccounts(accounts, clock)
+        val chart = RepositoryChartOfAccounts(accounts, ids, clock)
 
-        store.store(PostingFactory(chart, clock).create(account, movement, Money(minorUnits, eur)))
+        store.store(PostingFactory(chart, ids, clock).create(account, movement, Money(minorUnits, eur)))
     }
 
     private fun balanceOf(account: Account, onDate: Instant = NOW) =
-        calculator.calculate(BalanceQuery(onDate, account.id), Cursor()).items.single().amount
+        calculator.calculate(BalanceQuery(onDate, account.id), Cursor(50)).items.single().amount
 
     @Test
     fun `an account with nothing in the journal owes nothing`() {
@@ -67,7 +69,7 @@ class BalancesCalculatorTest {
 
     @Test
     fun `says which moment each balance was read at`() {
-        assertEquals(NOW, calculator.calculate(BalanceQuery(NOW, alice.id), Cursor()).items.single().onDate)
+        assertEquals(NOW, calculator.calculate(BalanceQuery(NOW, alice.id), Cursor(50)).items.single().onDate)
     }
 
     @Test
@@ -84,7 +86,7 @@ class BalancesCalculatorTest {
         record(alice, MovementType.DEPOSIT, 1000, NOW)
         record(bob, MovementType.DEPOSIT, 250, NOW)
 
-        val balances = calculator.calculate(BalanceQuery(NOW), Cursor())
+        val balances = calculator.calculate(BalanceQuery(NOW), Cursor(50))
 
         assertEquals(
             setOf("Alice", "Bob", "Cash EUR"),
@@ -98,7 +100,7 @@ class BalancesCalculatorTest {
     fun `hands back the accounts a page at a time`() {
         record(alice, MovementType.DEPOSIT, 1000, NOW)
 
-        val firstPage = calculator.calculate(BalanceQuery(NOW), Cursor(limit = 2))
+        val firstPage = calculator.calculate(BalanceQuery(NOW), Cursor(2))
 
         assertEquals(2, firstPage.items.size)
         assertEquals(firstPage.items.last().account.id.toString(), firstPage.nextCursor)
@@ -106,9 +108,9 @@ class BalancesCalculatorTest {
 
     @Test
     fun `has nothing to say about an account it does not keep`() {
-        val ghost = Account.forHolder("Ghost", eur, fixedClock())
+        val ghost = Account.forHolder("Ghost", eur, ids, fixedClock(), AccountReference("ACC-Ghost".uppercase()))
 
-        assertEquals(emptyList(), calculator.calculate(BalanceQuery(NOW, ghost.id), Cursor()).items)
+        assertEquals(emptyList(), calculator.calculate(BalanceQuery(NOW, ghost.id), Cursor(50)).items)
     }
 
     @Test

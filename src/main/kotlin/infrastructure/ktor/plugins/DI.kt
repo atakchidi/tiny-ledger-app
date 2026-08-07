@@ -2,20 +2,22 @@ package altak.ledger.infrastructure.ktor.plugins
 
 import altak.ledger.api.rest.controller.RestController
 import altak.ledger.api.rest.controller.accountController
-import altak.ledger.api.rest.controller.balanceController
+import altak.ledger.api.rest.controller.journalController
 import altak.ledger.application.account.service.ListAccountsService
 import altak.ledger.application.account.service.OpenAccountService
 import altak.ledger.application.account.service.ViewAccountService
-import altak.ledger.application.balance.service.ListBalancesService
-import altak.ledger.application.entry.service.RecordAccountEntryService
-import altak.ledger.application.entry.service.ListAccountEntriesService
+import altak.ledger.application.journal.service.ListBalancesService
+import altak.ledger.application.journal.service.RecordAccountEntryService
+import altak.ledger.application.journal.service.ListAccountEntriesService
+import altak.ledger.domain.IdGenerator
 import altak.ledger.domain.TransactionManager
 import altak.ledger.domain.account.AccountRepository
 import altak.ledger.domain.account.ChartOfAccounts
-import altak.ledger.domain.entry.JournalEntryRepository
-import altak.ledger.domain.entry.BalancesCalculator
-import altak.ledger.domain.entry.PostingFactory
-import altak.ledger.domain.entry.PostingStore
+import altak.ledger.domain.journal.JournalEntryRepository
+import altak.ledger.domain.journal.BalancesCalculator
+import altak.ledger.domain.journal.PostingFactory
+import altak.ledger.domain.journal.PostingStore
+import altak.ledger.infrastructure.UuidV7Generator
 import altak.ledger.infrastructure.persistence.InMemoryAccountRepository
 import altak.ledger.infrastructure.persistence.InMemoryJournalEntryRepository
 import altak.ledger.infrastructure.persistence.RepositoryChartOfAccounts
@@ -31,6 +33,7 @@ import kotlin.time.Clock
 fun Application.configureDependencyInjection() {
     dependencies {
         provide<Clock> { Clock.System }
+        provide<IdGenerator>(::UuidV7Generator)
         provide<ValidatorFactory> { Validation.buildDefaultValidatorFactory() }
         provide<Validator> { resolve<ValidatorFactory>().validator }
         provide<AccountRepository> { InMemoryAccountRepository() }
@@ -48,6 +51,6 @@ fun Application.configureDependencyInjection() {
         provide(::ListAccountEntriesService)
         provide(::RecordAccountEntryService)
 
-        provide<List<RestController>> { listOf(accountController, balanceController) }
+        provide<List<RestController>> { listOf(accountController, journalController) }
     }
 }

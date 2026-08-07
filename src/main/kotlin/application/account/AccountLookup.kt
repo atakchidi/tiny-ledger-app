@@ -17,7 +17,7 @@ private fun String.toAccountIdOrNull(): AccountId? =
 
 private fun String.toReferenceOrNull(): AccountReference? =
     try {
-        AccountReference.normalized(this)
+        AccountReference(this)
     } catch (notAReference: AccountReference.Malformed) {
         null
     }

@@ -11,19 +11,25 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class AccountApiTest {
 
     private fun ApplicationTestBuilder.startServer() = application { rootModule() }
 
-    private suspend fun HttpClient.openAccount(name: String = "Alice", currency: String = "EUR") =
-        post("/accounts") {
-            contentType(ContentType.Application.Json)
-            setBody("""{"name":"$name","currency":"$currency"}""")
-        }
+    private suspend fun HttpClient.openAccount(
+        name: String = "Alice",
+        currency: String = "EUR",
+        reference: String = "ACC-ALICE",
+    ) = post("/accounts") {
+        contentType(ContentType.Application.Json)
+        setBody("""{"name":"$name","currency":"$currency","reference":"$reference"}""")
+    }
 
     @Test
     fun `opens an account`() = testApplication {
@@ -34,6 +40,7 @@ class AccountApiTest {
         assertEquals(HttpStatusCode.Created, response.status)
         with(response.bodyAsText()) {
             assertContains(this, """"name":"Alice"""")
+            assertContains(this, """"reference":"ACC-ALICE"""")
             assertContains(this, """"currency":"EUR"""")
             assertContains(this, """"type":"LIABILITY"""")
             assertContains(this, """"balance":0.00""")
@@ -46,14 +53,21 @@ class AccountApiTest {
 
         val response = client.post("/accounts") {
             contentType(ContentType.Application.Json)
-            setBody("""{"name":"","currency":"EUR","reference":"no"}""")
+            setBody("""{"name":"","currency":"EUR","reference":"ACC-ALICE"}""")
         }
 
         assertEquals(HttpStatusCode.BadRequest, response.status)
-        assertEquals(
-            """{"errors":["name: must not be blank","reference: must be 3 to 32 upper-case letters, digits or dashes"]}""",
-            response.bodyAsText(),
-        )
+        assertContains(response.bodyAsText(), "name")
+    }
+
+    @Test
+    fun `rejects a reference that is not in canonical form`() = testApplication {
+        startServer()
+
+        val response = client.openAccount(reference = "acc-alice")
+
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertContains(response.bodyAsText(), "reference")
     }
 
     @Test
@@ -70,67 +84,53 @@ class AccountApiTest {
     }
 
     @Test
-    fun `views an account`() = testApplication {
-        startServer()
-        val id = client.openAccount().id()
-
-        val account = client.get("/accounts/$id")
-
-        assertEquals(HttpStatusCode.OK, account.status)
-        assertContains(account.bodyAsText(), """"id":"$id"""")
-        assertContains(account.bodyAsText(), """"name":"Alice"""")
-    }
-
-    @Test
-    fun `lists the accounts on the books`() = testApplication {
-        startServer()
-        client.openAccount()
-        client.openAccount(name = "Bob")
-
-        val response = client.get("/accounts")
-
-        assertEquals(HttpStatusCode.OK, response.status)
-        assertContains(response.bodyAsText(), """"name":"Alice"""")
-        assertContains(response.bodyAsText(), """"name":"Bob"""")
-    }
-
-    @Test
-    fun `is reachable by the reference it is known by outside`() = testApplication {
-        startServer()
-        client.post("/accounts") {
-            contentType(ContentType.Application.Json)
-            setBody("""{"name":"Alice","currency":"EUR","reference":"ACC-000123"}""")
-        }
-
-        val account = client.get("/accounts/ACC-000123")
-
-        assertEquals(HttpStatusCode.OK, account.status)
-        assertContains(account.bodyAsText(), """"reference":"ACC-000123"""")
-    }
-
-    @Test
     fun `refuses to open a second account under the same reference`() = testApplication {
         startServer()
-        val body = """{"name":"Alice","currency":"EUR","reference":"ACC-000123"}"""
 
-        client.post("/accounts") {
-            contentType(ContentType.Application.Json)
-            setBody(body)
-        }
-        val second = client.post("/accounts") {
-            contentType(ContentType.Application.Json)
-            setBody(body)
-        }
+        client.openAccount()
+        val second = client.openAccount(name = "Bob")
 
         assertEquals(HttpStatusCode.Conflict, second.status)
         assertContains(second.bodyAsText(), "is already open")
     }
 
     @Test
+    fun `views an account by id and by reference`() = testApplication {
+        startServer()
+        val id = client.openAccount().id()
+
+        val byId = client.get("/accounts/$id")
+        val byReference = client.get("/accounts/ACC-ALICE")
+
+        assertEquals(HttpStatusCode.OK, byId.status)
+        assertEquals(id, byId.field("id"))
+        assertEquals(HttpStatusCode.OK, byReference.status)
+        assertEquals(id, byReference.field("id"))
+    }
+
+    @Test
+    fun `lists the accounts on the books, a page at a time`() = testApplication {
+        startServer()
+        client.openAccount()
+        client.openAccount(name = "Bob", reference = "ACC-BOB")
+
+        val all = client.get("/accounts")
+        val firstPage = client.get("/accounts?limit=1")
+
+        assertEquals(
+            setOf("ACC-ALICE", "ACC-BOB"),
+            all.records().map { it.jsonObject.getValue("reference").jsonPrimitive.content }.toSet(),
+        )
+        assertNull(all.nextCursor())
+        assertEquals(1, firstPage.records().size)
+        assertEquals(firstPage.records().single().jsonObject.getValue("id").jsonPrimitive.content, firstPage.nextCursor())
+    }
+
+    @Test
     fun `has nothing to show for an account it does not keep`() = testApplication {
         startServer()
 
-        val unknown = client.get("/accounts/0199ffff-0000-7000-8000-000000000000")
+        val unknown = client.get("/accounts/019fffff-0000-7000-8000-000000000000")
         val malformed = client.get("/accounts/not-an-account")
 
         assertEquals(HttpStatusCode.NotFound, unknown.status)

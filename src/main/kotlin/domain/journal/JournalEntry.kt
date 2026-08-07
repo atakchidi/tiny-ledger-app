@@ -1,34 +1,32 @@
-package altak.ledger.domain.entry
+package altak.ledger.domain.journal
 
 import altak.ledger.domain.AggregateRoot
+import altak.ledger.domain.IdGenerator
 import altak.ledger.domain.LedgerException
 import altak.ledger.domain.Money
-import altak.ledger.domain.ISSUED_VERSION
-import altak.ledger.domain.version
 import altak.ledger.domain.account.AccountId
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
 enum class Direction {
-    DEBIT,
-    CREDIT,
+    DEBIT {
+        override val opposite get() = CREDIT
+    },
+    CREDIT {
+        override val opposite get() = DEBIT
+    },
     ;
 
-    val opposite: Direction get() = if (this == DEBIT) CREDIT else DEBIT
+    abstract val opposite: Direction
+
+    fun signOn(normalSide: Direction, amount: Money): Money = if (this == normalSide) amount else -amount
 }
 
 @JvmInline
 value class EntryId(val value: Uuid) {
-    init {
-        if (value.version != ISSUED_VERSION) throw Malformed(value.toString())
-    }
-
-    constructor(value: String) : this(Uuid.parse(value))
-
-    class Malformed(id: String) : LedgerException("\"$id\" is not an identifier this ledger issues")
-
     override fun toString(): String = value.toString()
+    constructor(generator: IdGenerator, clock: Clock) : this(generator.nextId(clock))
 }
 
 data class EntryLine(
@@ -44,7 +42,7 @@ data class EntryLine(
         }
     }
 
-    fun signedAgainst(normalSide: Direction): Money = if (direction == normalSide) amount else -amount
+    fun signedAgainst(normalSide: Direction): Money = direction.signOn(normalSide, amount)
 }
 
 data class JournalEntry(
@@ -55,14 +53,18 @@ data class JournalEntry(
     override val updatedAt: Instant = createdAt,
 ) : AggregateRoot<EntryId> {
 
-    constructor(description: String, lines: List<EntryLine>, clock: Clock) :
-        this(EntryId(Uuid.generateV7NonMonotonicAt(clock.now())), description, clock.now(), lines)
+    constructor(description: String, lines: List<EntryLine>, ids: IdGenerator, clock: Clock) :
+        this(EntryId(ids, clock), description, clock.now(), lines)
 
     class TooFewLines(message: String) : LedgerException(message)
 
     class MixedCurrencies(message: String) : LedgerException(message)
 
     class Unbalanced(message: String) : LedgerException(message)
+
+    val debited: Money by lazy { totalFor(Direction.DEBIT) }
+
+    val credited: Money by lazy { totalFor(Direction.CREDIT) }
 
     init {
         if (lines.size < 2) {
@@ -77,8 +79,6 @@ data class JournalEntry(
             )
         }
 
-        val debited = totalFor(Direction.DEBIT)
-        val credited = totalFor(Direction.CREDIT)
         if (debited != credited) {
             throw Unbalanced(
                 "Debits must equal credits, but debited ${debited.minorUnits} and credited ${credited.minorUnits}",
