@@ -43,3 +43,5 @@ build/
 
 # OS
 .DS_Store
+
+.claude
