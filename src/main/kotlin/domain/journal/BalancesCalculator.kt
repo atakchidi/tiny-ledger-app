@@ -6,11 +6,11 @@ import altak.ledger.domain.Page
 import altak.ledger.domain.account.Account
 import altak.ledger.domain.account.AccountId
 import altak.ledger.domain.account.AccountRepository
-import kotlin.time.Instant
+import kotlinx.datetime.LocalDate
 
-data class BalanceQuery(val onDate: Instant, val accountId: AccountId? = null)
+data class BalanceQuery(val onDate: LocalDate, val accountId: AccountId? = null)
 
-data class Balance(val account: Account, val onDate: Instant, val amount: Money)
+data class Balance(val account: Account, val onDate: LocalDate, val amount: Money)
 
 class BalancesCalculator(
     private val accounts: AccountRepository,
@@ -26,7 +26,7 @@ class BalancesCalculator(
             ?.let { id -> Page(listOfNotNull(accounts.byId(id))) }
             ?: accounts.all(cursor)
 
-    private fun Account.balanceAsOf(onDate: Instant) =
+    private fun Account.balanceAsOf(onDate: LocalDate) =
         entries.linesOf(id, onDate).fold(Money.zero(currency)) { running, line ->
             running + line.signedAgainst(type.normalSide)
         }

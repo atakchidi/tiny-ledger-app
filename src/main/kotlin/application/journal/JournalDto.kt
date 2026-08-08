@@ -2,7 +2,7 @@ package altak.ledger.application.journal
 
 import altak.ledger.application.shared.BigDecimalSerializer
 import altak.ledger.application.shared.CurrencySerializer
-import altak.ledger.application.shared.InstantSerializer
+import altak.ledger.application.shared.LocalDateSerializer
 import altak.ledger.application.shared.UuidSerializer
 import altak.ledger.domain.journal.Direction
 import io.ktor.openapi.JsonSchema
@@ -10,6 +10,7 @@ import altak.ledger.domain.journal.MovementType
 import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.Digits
 import jakarta.validation.constraints.Size
+import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
 import java.math.BigDecimal
 import java.util.Currency
@@ -37,6 +38,14 @@ data class RecordAccountEntryDto(
     @field:Size(max = 140, message = "must be at most 140 characters")
     @JsonSchema.Description("What the movement was for; the ledger names it Deposit or Withdrawal if you say nothing")
     val description: String? = null,
+
+    @Serializable(with = LocalDateSerializer::class)
+    @JsonSchema.Description(
+        "The date the movement happened, which is what balances are read against; today if left out. " +
+            "It may be backdated but not dated ahead of today.",
+    )
+    @JsonSchema.Example("2026-06-01")
+    val occurredOn: LocalDate? = null,
 )
 
 @Serializable
@@ -54,19 +63,28 @@ data class ViewEntryDto(
     @JsonSchema.Description("What the movement was for")
     val description: String,
 
+    @Serializable(with = LocalDateSerializer::class)
+    @JsonSchema.Description("The date the movement happened; balances are read against this")
+    @JsonSchema.Example("2026-06-01")
+    val occurredOn: LocalDate,
+
+    @JsonSchema.Description("The moment the books recorded it")
     val createdAt: Instant,
 
     val updatedAt: Instant,
 
-    @Serializable(with = BigDecimalSerializer::class)
+    @Serializable(with = CurrencySerializer::class)
+    @JsonSchema.Description("The currency every line of the entry is in, as an ISO 4217 code")
+    @JsonSchema.Example("EUR")
+    val currency: Currency,
+
     @JsonSchema.Description("What the entry debits in total; always equal to what it credits")
     @JsonSchema.Example("10.50")
-    val totalDebit: BigDecimal,
+    val totalDebit: String,
 
-    @Serializable(with = BigDecimalSerializer::class)
     @JsonSchema.Description("What the entry credits in total; always equal to what it debits")
     @JsonSchema.Example("10.50")
-    val totalCredit: BigDecimal,
+    val totalCredit: String,
 
     @JsonSchema.Description("Both sides of the entry: what was debited and what was credited, always equal")
     val lines: List<ViewEntryLineDto>,
@@ -78,11 +96,15 @@ data class ViewEntryLineDto(
     @JsonSchema.Example("019fdb85-c939-7780-9548-55fe6716fede")
     val accountId: String,
 
+    @JsonSchema.Description("The reference that account is known by outside")
+    @JsonSchema.Example("ACC-000123")
+    val reference: String,
+
     @JsonSchema.Description("Which side of the account the amount lands on")
     val direction: String,
 
-    @Serializable(with = BigDecimalSerializer::class)
-    val amount: BigDecimal,
+    @JsonSchema.Example("10.50")
+    val amount: String,
 )
 
 @Serializable
@@ -91,16 +113,18 @@ data class BalanceQueryDto(
     @JsonSchema.Example("ACC-000123")
     val account: String? = null,
 
-    @Serializable(with = InstantSerializer::class)
-    @JsonSchema.Description("The moment to read the journal at, ISO-8601; now if left out")
-    val onDate: Instant? = null,
+    @Serializable(with = LocalDateSerializer::class)
+    @JsonSchema.Description("The date to read the journal as of, as YYYY-MM-DD; today if left out")
+    @JsonSchema.Example("2026-06-01")
+    val onDate: LocalDate? = null,
 )
 
 @Serializable
 data class ViewBalanceDto(
-    @JsonSchema.Description("The moment the journal was read at")
-    @JsonSchema.Example("\"2026-08-07T09:20:06.171504Z\"")
-    val onDate: Instant,
+    @Serializable(with = LocalDateSerializer::class)
+    @JsonSchema.Description("The date the journal was read as of")
+    @JsonSchema.Example("2026-06-01")
+    val onDate: LocalDate,
 
     @JsonSchema.Description("The id of the account the balance belongs to")
     @JsonSchema.Example("\"019fdb85-c939-7780-9548-55fe6716fede\"")
@@ -115,6 +139,6 @@ data class ViewBalanceDto(
     @JsonSchema.Example("EUR")
     val currency: Currency,
 
-    @Serializable(with = BigDecimalSerializer::class)
-    val amount: BigDecimal,
+    @JsonSchema.Example("10.50")
+    val amount: String,
 )

@@ -43,8 +43,32 @@ class AccountApiTest {
             assertContains(this, """"reference":"ACC-ALICE"""")
             assertContains(this, """"currency":"EUR"""")
             assertContains(this, """"type":"LIABILITY"""")
-            assertContains(this, """"balance":0.00""")
+            assertContains(this, """"balance":"0.00"""")
         }
+    }
+
+    @Test
+    fun `orders the accounts by the reference they are known by`() = testApplication {
+        startServer()
+        client.openAccount(name = "Chloe", reference = "ACC-003")
+        client.openAccount(name = "Alice", reference = "ACC-001")
+
+        val byReference = client.get("/accounts?sort=reference")
+
+        assertEquals(
+            listOf("ACC-001", "ACC-003"),
+            byReference.records().map { it.jsonObject.getValue("reference").jsonPrimitive.content },
+        )
+    }
+
+    @Test
+    fun `refuses to order the accounts by a field it does not offer`() = testApplication {
+        startServer()
+
+        val response = client.get("/accounts?sort=name")
+
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertContains(response.bodyAsText(), "sort: must be one of id, reference")
     }
 
     @Test

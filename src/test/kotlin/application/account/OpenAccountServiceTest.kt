@@ -7,10 +7,8 @@ import altak.ledger.application.account.service.OpenAccountService
 import altak.ledger.domain.Money
 import altak.ledger.domain.account.AccountReference
 import altak.ledger.domain.account.AccountType
-import altak.ledger.fixedClock
-import altak.ledger.ids
+import altak.ledger.accountFactory
 import altak.ledger.infrastructure.persistence.InMemoryAccountRepository
-import java.math.BigDecimal
 import java.util.Currency
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -21,7 +19,7 @@ class OpenAccountServiceTest {
     private val eur = Currency.getInstance("EUR")
     private val accounts = InMemoryAccountRepository()
     private val transactions = CountingTransactionManager()
-    private val service = OpenAccountService(accounts, ids, transactions, fixedClock())
+    private val service = OpenAccountService(accounts, accountFactory(), transactions)
 
     private fun open(name: String = "Alice", currency: String = "EUR", reference: String = "ACC-000123") =
         service.execute(OpenAccount(OpenAccountDto(name, Currency.getInstance(currency), reference)))
@@ -33,7 +31,7 @@ class OpenAccountServiceTest {
         assertEquals("Alice", alice.name)
         assertEquals(eur, alice.currency)
         assertEquals(AccountType.LIABILITY, alice.type)
-        assertEquals(BigDecimal("0.00"), alice.balance)
+        assertEquals("0.00", alice.balance)
         assertEquals(NOW, alice.createdAt)
     }
 

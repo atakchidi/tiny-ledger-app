@@ -16,7 +16,7 @@ fun Account.toViewDto() = ViewAccountDto(
     name = name,
     currency = currency,
     type = type,
-    balance = balance.toDecimal(),
+    balance = balance.toPlainString(),
     createdAt = createdAt,
     updatedAt = updatedAt,
 )

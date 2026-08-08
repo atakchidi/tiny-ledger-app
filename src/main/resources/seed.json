@@ -1,0 +1,29 @@
+{
+  "accounts": [
+    { "reference": "ACC-ALICE", "name": "Alice Johnson", "currency": "EUR" },
+    { "reference": "ACC-BOB", "name": "Bob Meyer", "currency": "EUR" },
+    { "reference": "ACC-CHLOE", "name": "Chloe Dubois", "currency": "EUR" },
+    { "reference": "ACC-DAN", "name": "Dan Wright", "currency": "USD" },
+    { "reference": "ACC-YUKI", "name": "Yuki Tanaka", "currency": "JPY" }
+  ],
+  "entries": [
+    { "account": "ACC-ALICE", "type": "DEPOSIT", "amount": 2400.00, "description": "Salary May", "occurredOn": "2026-05-02" },
+    { "account": "ACC-ALICE", "type": "WITHDRAWAL", "amount": 1200.00, "description": "Rent May", "occurredOn": "2026-05-03" },
+    { "account": "ACC-BOB", "type": "DEPOSIT", "amount": 800.00, "description": "Opening transfer", "occurredOn": "2026-05-06" },
+    { "account": "ACC-ALICE", "type": "WITHDRAWAL", "amount": 64.30, "description": "Groceries", "occurredOn": "2026-05-18" },
+    { "account": "ACC-DAN", "type": "DEPOSIT", "amount": 3000.00, "description": "Consulting invoice", "occurredOn": "2026-05-21" },
+    { "account": "ACC-ALICE", "type": "DEPOSIT", "amount": 2400.00, "description": "Salary June", "occurredOn": "2026-06-02" },
+    { "account": "ACC-ALICE", "type": "WITHDRAWAL", "amount": 1200.00, "description": "Rent June", "occurredOn": "2026-06-03" },
+    { "account": "ACC-BOB", "type": "DEPOSIT", "amount": 150.00, "occurredOn": "2026-06-11" },
+    { "account": "ACC-CHLOE", "type": "DEPOSIT", "amount": 120.00, "description": "Initial top-up", "occurredOn": "2026-06-16" },
+    { "account": "ACC-BOB", "type": "WITHDRAWAL", "amount": 200.00, "description": "Concert tickets", "occurredOn": "2026-06-28" },
+    { "account": "ACC-YUKI", "type": "DEPOSIT", "amount": 120000, "description": "Salary", "occurredOn": "2026-07-02" },
+    { "account": "ACC-ALICE", "type": "DEPOSIT", "amount": 2450.00, "description": "Salary July", "occurredOn": "2026-07-02" },
+    { "account": "ACC-CHLOE", "type": "WITHDRAWAL", "amount": 45.50, "description": "Dinner", "occurredOn": "2026-07-04" },
+    { "account": "ACC-DAN", "type": "WITHDRAWAL", "amount": 1250.75, "description": "Equipment", "occurredOn": "2026-07-09" },
+    { "account": "ACC-ALICE", "type": "WITHDRAWAL", "amount": 320.00, "occurredOn": "2026-07-21" },
+    { "account": "ACC-BOB", "type": "DEPOSIT", "amount": 1750.00, "description": "Salary August", "occurredOn": "2026-08-01" },
+    { "account": "ACC-CHLOE", "type": "WITHDRAWAL", "amount": 200.00, "description": "Card payment", "occurredOn": "2026-08-03" },
+    { "account": "ACC-YUKI", "type": "WITHDRAWAL", "amount": 34500, "description": "Rent", "occurredOn": "2026-08-05" }
+  ]
+}

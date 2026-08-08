@@ -3,7 +3,7 @@ package altak.ledger.domain.journal
 import altak.ledger.domain.Cursor
 import altak.ledger.domain.Page
 import altak.ledger.domain.account.AccountId
-import kotlin.time.Instant
+import kotlinx.datetime.LocalDate
 
 interface JournalEntryRepository {
 
@@ -11,5 +11,5 @@ interface JournalEntryRepository {
 
     fun byAccount(id: AccountId, cursor: Cursor<EntryId>): Page<JournalEntry>
 
-    fun linesOf(id: AccountId, until: Instant): List<EntryLine>
+    fun linesOf(id: AccountId, until: LocalDate): List<EntryLine>
 }

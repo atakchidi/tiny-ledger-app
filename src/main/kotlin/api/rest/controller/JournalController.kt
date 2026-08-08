@@ -10,7 +10,9 @@ import altak.ledger.api.rest.inject
 import altak.ledger.api.rest.pages
 import altak.ledger.api.rest.receiveQuery
 import altak.ledger.api.rest.refuses
+import altak.ledger.api.rest.Sortable
 import altak.ledger.api.rest.schemaOf
+import altak.ledger.api.rest.sortedWithin
 import altak.ledger.application.journal.BalanceQueryDto
 import altak.ledger.application.journal.ViewBalanceDto
 import altak.ledger.application.journal.service.ListBalances
@@ -34,12 +36,18 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 import io.ktor.utils.io.ExperimentalKtorApi
 
+private val entriesSortableBy = Sortable("occurredOn")
+
+// Balances are read off the accounts they belong to, so they order by the same fields an account does.
+private val balancesSortableBy = Sortable("reference")
+
 val journalController = RestController {
     route("/journal") {
 
         get("/entries") {
             val service = inject<ListAccountEntriesService>()
-            val entries = ListAccountEntries(call.receiveQuery<EntryQueryDto>(), call.receiveQuery<CursorDto>())
+            val page = call.receiveQuery<CursorDto>().sortedWithin(entriesSortableBy)
+            val entries = ListAccountEntries(call.receiveQuery<EntryQueryDto>(), page)
 
             call.respond(
                 service.execute(entries).asApiResponse()
@@ -47,10 +55,11 @@ val journalController = RestController {
         }.describe {
             operationId = "listAccountEntries"
             summary = "List the entries of an account"
-            description = "The movements the account took part in, oldest first, a page at a time. " +
+            description = "The movements the account took part in, in the order they were recorded, " +
+                "a page at a time. Order them by the day they happened with `sort=occurredOn`. " +
                 "Pass the `nextCursor` of a page back as `after` to read the one behind it."
             tag("journal")
-            pages("entries")
+            pages("entries", entriesSortableBy)
 
             parameters {
                 query("account") {
@@ -89,7 +98,8 @@ val journalController = RestController {
 
         get("/balances") {
             val service = inject<ListBalancesService>()
-            val balances = ListBalances(call.receiveQuery<BalanceQueryDto>(), call.receiveQuery<CursorDto>())
+            val page = call.receiveQuery<CursorDto>().sortedWithin(balancesSortableBy)
+            val balances = ListBalances(call.receiveQuery<BalanceQueryDto>(), page)
 
             call.respond(
                 service.execute(balances).asApiResponse()
@@ -100,7 +110,7 @@ val journalController = RestController {
             description = "What the ledger owes, and holds, as the journal stood on a date. " +
                 "Without an account it answers for every account it keeps; without a date, for right now."
             tag("journal")
-            pages("balances")
+            pages("balances", balancesSortableBy)
 
             parameters {
                 query("account") {
@@ -108,7 +118,7 @@ val journalController = RestController {
                     schema = schemaOf<String>()
                 }
                 query("onDate") {
-                    description = "The moment to read the journal at, ISO-8601; defaults to now"
+                    description = "The date to read the journal as of, as YYYY-MM-DD; defaults to today"
                     schema = schemaOf<String>()
                 }
             }

@@ -7,8 +7,9 @@ import altak.ledger.domain.account.AccountReference
 import altak.ledger.domain.account.AccountRole
 import altak.ledger.domain.account.AccountType
 import altak.ledger.domain.account.ChartOfAccounts
+import altak.ledger.accountFactory
 import altak.ledger.fixedClock
-import altak.ledger.ids
+import altak.ledger.journalEntryFactory
 import java.util.Currency
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -19,11 +20,12 @@ class PostingFactoryTest {
     private val eur = Currency.getInstance("EUR")
     private val usd = Currency.getInstance("USD")
     private val clock = fixedClock()
+    private val factory = accountFactory(clock)
 
-    private val chart = ChartOfAccounts { role, currency -> Account.internal(role, currency, ids, clock) }
-    private val postings = PostingFactory(chart, ids, clock)
+    private val chart = ChartOfAccounts { role, currency -> factory.internal(role, currency) }
+    private val postings = PostingFactory(chart, journalEntryFactory(clock), clock)
 
-    private val alice = Account.forHolder("Alice", eur, ids, clock, AccountReference("ACC-Alice".uppercase()))
+    private val alice = factory.forHolder("Alice", eur, AccountReference("ACC-Alice".uppercase()))
 
     private fun Posting.of(reference: String) = accounts.single { it.reference.toString() == reference }
 
@@ -66,8 +68,8 @@ class PostingFactoryTest {
     @Test
     fun `a counterpart of any category takes the side opposite the subject`() {
         AccountType.entries.forEach { type ->
-            val counterpart = Account.internal(AccountRole.CASH, eur, ids, clock).copy(type = type)
-            val posting = PostingFactory({ _, _ -> counterpart }, ids, clock)
+            val counterpart = factory.internal(AccountRole.CASH, eur).copy(type = type)
+            val posting = PostingFactory({ _, _ -> counterpart }, journalEntryFactory(clock), clock)
                 .create(alice, MovementType.DEPOSIT, Money(1000, eur))
 
             val subjectSide = posting.entry.lines.single { it.accountId == alice.id }.direction
@@ -93,7 +95,7 @@ class PostingFactoryTest {
 
     @Test
     fun `settles against cash in the account's own currency`() {
-        val dollars = Account.forHolder("Dollars", usd, ids, clock, AccountReference("ACC-Dollars".uppercase()))
+        val dollars = factory.forHolder("Dollars", usd, AccountReference("ACC-Dollars".uppercase()))
 
         val posting = postings.create(dollars, MovementType.DEPOSIT, Money(100, usd))
 

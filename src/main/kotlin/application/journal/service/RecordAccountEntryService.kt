@@ -17,6 +17,7 @@ data class RecordAccountEntry(val movement: RecordAccountEntryDto)
 private val RecordAccountEntry.account get() = movement.account
 private val RecordAccountEntry.type get() = movement.type
 private val RecordAccountEntry.description get() = movement.description
+private val RecordAccountEntry.occurredOn get() = movement.occurredOn
 private fun RecordAccountEntry.amountIn(currency: Currency) = Money.of(movement.amount, currency)
 
 class RecordAccountEntryService(
@@ -28,11 +29,11 @@ class RecordAccountEntryService(
     fun execute(command: RecordAccountEntry): ViewEntryDto = transactions {
         with(command) {
             val holder = accounts.byIdOrReference(account) ?: throw AccountNotFound(account)
-            val posting = postings.create(holder, type, amountIn(holder.currency), description)
+            val posting = postings.create(holder, type, amountIn(holder.currency), description, occurredOn)
 
             store.store(posting)
 
-            posting.entry.toViewDto()
+            posting.entry.toViewDto(posting::referenceOf)
         }
     }
 }

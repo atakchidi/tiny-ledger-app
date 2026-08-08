@@ -13,12 +13,14 @@ import io.ktor.server.routing.openapi.OpenApiDocSource
 import io.ktor.server.routing.openapi.hide
 import io.ktor.utils.io.ExperimentalKtorApi
 
+private const val MINIMUM_COMPRESSED_BYTES = 1024L
+
 // Generated from the live routing tree, so every route a RestController registers is documented
 // without being listed anywhere.
 private val openApiSource = OpenApiDocSource.Routing(contentType = ContentType.Application.Json)
 
 private val openApiBaseDoc = OpenApiDoc.build {
-    info = OpenApiInfo(title = "ledger", version = "1.0.0-SNAPSHOT")
+    info = OpenApiInfo(title = "ledger-app", version = "1.0.0-SNAPSHOT")
 }
 
 @OptIn(ExperimentalKtorApi::class)
@@ -31,7 +33,14 @@ fun Application.configureHttp() {
         allowHeader(HttpHeaders.Authorization)
         anyHost() // @TODO: Don't do this in production if possible. Try to limit it.
     }
-    install(Compression)
+    // Priority is weighed against the quality the client asked with, so deflate wins whenever a
+    // client accepts both, and identity is left as the answer when it accepts neither.
+    install(Compression) {
+        deflate { priority = 10.0 }
+        gzip { priority = 1.0 }
+        identity { priority = 0.1 }
+        minimumSize(MINIMUM_COMPRESSED_BYTES)
+    }
     routing {
         swaggerUI(path = "swagger") {
             source = openApiSource

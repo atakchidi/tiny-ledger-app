@@ -10,9 +10,12 @@ import altak.ledger.application.journal.service.ListBalancesService
 import altak.ledger.application.journal.service.RecordAccountEntryService
 import altak.ledger.application.journal.service.ListAccountEntriesService
 import altak.ledger.domain.IdGenerator
+import altak.ledger.domain.LedgerCalendar
 import altak.ledger.domain.TransactionManager
+import altak.ledger.domain.account.AccountFactory
 import altak.ledger.domain.account.AccountRepository
 import altak.ledger.domain.account.ChartOfAccounts
+import altak.ledger.domain.journal.JournalEntryFactory
 import altak.ledger.domain.journal.JournalEntryRepository
 import altak.ledger.domain.journal.BalancesCalculator
 import altak.ledger.domain.journal.PostingFactory
@@ -28,17 +31,22 @@ import jakarta.validation.Validator
 import jakarta.validation.ValidatorFactory
 import io.ktor.server.application.*
 import io.ktor.server.plugins.di.*
+import kotlinx.datetime.TimeZone
 import kotlin.time.Clock
 
 fun Application.configureDependencyInjection() {
     dependencies {
         provide<Clock> { Clock.System }
+        provide<TimeZone> { TimeZone.currentSystemDefault() }
+        provide(::LedgerCalendar)
         provide<IdGenerator>(::UuidV7Generator)
         provide<ValidatorFactory> { Validation.buildDefaultValidatorFactory() }
         provide<Validator> { resolve<ValidatorFactory>().validator }
         provide<AccountRepository> { InMemoryAccountRepository() }
         provide<JournalEntryRepository> { InMemoryJournalEntryRepository() }
         provide<TransactionManager> { InMemoryTransactionManager() }
+        provide(::AccountFactory)
+        provide(::JournalEntryFactory)
         provide<ChartOfAccounts>(::RepositoryChartOfAccounts)
         provide<PostingStore>(::RepositoryPostingStore)
         provide(::PostingFactory)

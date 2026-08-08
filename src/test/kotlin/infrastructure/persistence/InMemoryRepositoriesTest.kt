@@ -2,8 +2,10 @@ package altak.ledger.infrastructure.persistence
 
 import altak.ledger.CountingTransactionManager
 import altak.ledger.NOW
+import altak.ledger.accountFactory
+import altak.ledger.advancingClock
 import altak.ledger.fixedClock
-import altak.ledger.ids
+import altak.ledger.journalEntryFactory
 import altak.ledger.domain.Money
 import altak.ledger.domain.account.Account
 import altak.ledger.domain.account.AccountReference
@@ -12,7 +14,6 @@ import altak.ledger.domain.account.AccountId
 import altak.ledger.domain.account.AccountType
 import altak.ledger.domain.journal.Direction
 import altak.ledger.domain.journal.EntryLine
-import altak.ledger.domain.journal.JournalEntry
 import altak.ledger.domain.Cursor
 import java.util.Currency
 import kotlin.test.Test
@@ -25,9 +26,10 @@ class InMemoryAccountRepositoryTest {
     private val eur = Currency.getInstance("EUR")
     private val usd = Currency.getInstance("USD")
     private val clock = fixedClock()
+    private val factory = accountFactory(clock)
     private val repository = InMemoryAccountRepository()
 
-    private val alice = Account.forHolder("Alice", eur, ids, clock, AccountReference("ACC-Alice".uppercase()))
+    private val alice = factory.forHolder("Alice", eur, AccountReference("ACC-Alice".uppercase()))
 
     @Test
     fun `hands back nothing for an account it has not seen`() {
@@ -45,8 +47,8 @@ class InMemoryAccountRepositoryTest {
 
     @Test
     fun `finds a saved account by the reference it is known by outside`() {
-        val cashEur = Account.internal(AccountRole.CASH, eur, ids, clock)
-        val cashUsd = Account.internal(AccountRole.CASH, usd, ids, clock)
+        val cashEur = factory.internal(AccountRole.CASH, eur)
+        val cashUsd = factory.internal(AccountRole.CASH, usd)
         listOf(cashEur, cashUsd, alice).forEach(repository::save)
 
         assertEquals(cashEur, repository.byReference(AccountRole.CASH.referenceFor(eur)))
@@ -68,21 +70,21 @@ class InMemoryJournalEntryRepositoryTest {
 
     private val eur = Currency.getInstance("EUR")
     private val clock = fixedClock()
+    private val factory = accountFactory(clock)
+    private val journal = journalEntryFactory(advancingClock())
     private val repository = InMemoryJournalEntryRepository()
 
-    private val alice = Account.forHolder("Alice", eur, ids, clock, AccountReference("ACC-Alice".uppercase()))
-    private val cash = Account.internal(AccountRole.CASH, eur, ids, clock)
-    private val bob = Account.forHolder("Bob", eur, ids, clock, AccountReference("ACC-Bob".uppercase()))
+    private val alice = factory.forHolder("Alice", eur, AccountReference("ACC-Alice".uppercase()))
+    private val cash = factory.internal(AccountRole.CASH, eur)
+    private val bob = factory.forHolder("Bob", eur, AccountReference("ACC-Bob".uppercase()))
 
     private fun movementOf(holder: Account, minorUnits: Long) =
-        JournalEntry(
+        journal.create(
             "movement",
             listOf(
                 EntryLine(holder.id, Direction.CREDIT, Money(minorUnits, eur)),
                 EntryLine(cash.id, Direction.DEBIT, Money(minorUnits, eur)),
             ),
-            ids,
-            clock,
         )
 
     @Test

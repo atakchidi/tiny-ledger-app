@@ -77,6 +77,34 @@ silently invent or lose a fraction.
 `BigDecimal` would be the better internal choice the day interest, FX rates or per-unit pricing
 arrive, since those produce sub-minor-unit intermediates. Nothing here does.
 
+## Two dates on an entry
+
+Real books date an entry twice, and conflating the two is a modelling bug rather than a
+simplification:
+
+| | type | what it means |
+|---|---|---|
+| `occurredOn` | `LocalDate` | the **effective date** — when the event happened. Balances, periods and "as of" reads are computed from this. |
+| `createdAt` | `Instant` | the **entry date** — when the books received it. Audit trail; also what ids sort by. |
+
+Backdating within an open period is ordinary accounting: an invoice arriving on the 5th for work done
+on the 28th is posted with last month's effective date. `POST /journal/entries` therefore accepts
+`occurredOn`, defaulting to today, and `?onDate=` on balances filters on it. Dating an entry **after**
+today is refused (`JournalEntryFactory.FutureDated`) — the common rule, and the one that keeps a
+balance "as of today" meaningful.
+
+The effective date is a `LocalDate`, not an `Instant`, because that is what it is: books are kept per
+accounting day, and no rule cares that a sale happened at 14:32. Modelling it as an instant also
+makes `onDate=2026-06-01` silently exclude everything that happened *during* the 1st, which is never
+what the question means. `Instant` stays where precision is real — the recording trail.
+
+Dates need a zone, and a `Clock` deliberately has none: it hands out instants, which have no calendar
+until something says where midnight falls. `LedgerCalendar(clock, zone)` is that something, and the
+only place in the app a date is derived from a moment. The zone is a single injected token
+(`TimeZone.currentSystemDefault()`), so the books keep **one** calendar rather than one per caller —
+an accounting day is the same day for everyone. Deployment picks it: the image sets
+`TZ=Europe/Riga`.
+
 ## What is not enforced
 
 - **Overdrafts are allowed.** A withdrawal may take a holder's balance below zero. A real ledger
@@ -84,6 +112,11 @@ arrive, since those produce sub-minor-unit intermediates. Nothing here does.
 - **No idempotency.** A replayed deposit posts twice. Movements carry no external reference, and a
   reference without a uniqueness check would be decoration. This is the feature the brief excludes.
 - **No atomicity.** See below.
+- **No period closing.** Any past date may be backdated to. Real books lock a closed period and take
+  a correction in the current one instead; that is a period aggregate and an authority check, not a
+  change to the entry.
+- **An entry may predate its account.** Nothing checks `occurredOn` against when the account was
+  opened, since an account record is administrative and the event is not.
 
 ## Transactions
 
@@ -117,16 +150,38 @@ paginated: entry ids are time-ordered, so `after` maps to `WHERE id > ? ORDER BY
 an index serves directly and which cannot skip or repeat rows as the journal grows. Neither
 repository exposes an unpaged read.
 
+Since ids follow `createdAt`, the default order is **recording order**, which is what a journal is: a
+chronological record of postings, each showing the date it happened.
+
+**Ordering travels in the cursor** (`Cursor(limit, after, sorting)`), because a cursor that does not
+know the order it was cut from cannot resume. `Sorting(field: String, direction)` is deliberately
+flat — a field name, the way an ORM takes one — so no aggregate needs a parallel enum of its own
+columns and `Cursor` needs no second type parameter. The id always comes last in the order, whatever
+the field: two entries share a date, and a page has to resume from the record *after* the one it
+handed back, which only the id can identify.
+
+The in-memory adapter reads the field off the record by name, so it can order by anything a record
+carries. That is more than a caller should reach into, so **the API publishes the fields it will
+answer for** — `Sortable("occurredOn")`, declared once per route and used twice: it
+fills the `enum` on the `sort` parameter in the OpenAPI document, and rejects anything else with a
+400 before the service is called. The two cannot drift, because they are the same value.
+
+`nextCursor` stays an opaque id under any ordering: the adapter finds the anchor in the ordered list
+rather than encoding the sort key into the cursor. In SQL that is a subselect for the anchor row; the
+alternative — packing `(key, id)` into the cursor string — is the faster one and remains open.
+
 **The journal answers what a balance is.** `BalancesCalculator` folds an account's entry lines up to
 a moment and returns a `Balances` value object:
 
 ```kotlin
-entries.linesOf(id, until = asOf)
+entries.linesOf(id, until = onDate)
     .fold(Money.zero(currency)) { running, line -> running + line.signedAgainst(type.normalSide) }
 ```
 
-`GET /balances` always asks the journal, which is why `?onDate=…` falls out for free — a balance *is*
-a question about the journal at a moment, so asking it of the past costs nothing extra in code.
+`GET /journal/balances` always asks the journal, which is why `?onDate=…` falls out for free — a
+balance *is* a question about the journal on a date, so asking it of the past costs nothing extra in
+code. The fold filters on `occurredOn`, so a backdated entry counts from the day it happened, not the
+day it was keyed in.
 
 `Account.balance` also exists, but as a **read model**, not as truth. `PostingFactory` projects each
 line onto the accounts it touches and `PostingStore` saves them, so a listing can show every holder's

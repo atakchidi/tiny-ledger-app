@@ -19,6 +19,7 @@ kotlin {
     }
 }
 dependencies {
+    implementation(ktorLibs.client.cio)
     implementation(ktorLibs.serialization.kotlinx.json)
     implementation(ktorLibs.server.autoHeadResponse)
     implementation(ktorLibs.server.compression)
@@ -33,6 +34,7 @@ dependencies {
     implementation(ktorLibs.server.swagger)
     implementation(libs.logback.classic)
     implementation(libs.jakarta.validation.api)
+    implementation(libs.kotlinx.datetime)
     implementation(libs.hibernate.validator)
     runtimeOnly(libs.expressly)
 

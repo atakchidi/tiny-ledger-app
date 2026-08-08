@@ -2,6 +2,7 @@ package altak.ledger.application.journal
 
 import altak.ledger.CountingTransactionManager
 import altak.ledger.NOW
+import altak.ledger.TODAY
 import altak.ledger.application.account.AccountNotFound
 import altak.ledger.application.journal.service.RecordAccountEntry
 import altak.ledger.application.journal.service.RecordAccountEntryService
@@ -17,8 +18,9 @@ import altak.ledger.domain.journal.BalanceQuery
 import altak.ledger.domain.journal.BalancesCalculator
 import altak.ledger.domain.journal.MovementType
 import altak.ledger.domain.journal.PostingFactory
+import altak.ledger.accountFactory
 import altak.ledger.fixedClock
-import altak.ledger.ids
+import altak.ledger.journalEntryFactory
 import altak.ledger.infrastructure.persistence.InMemoryAccountRepository
 import altak.ledger.infrastructure.persistence.InMemoryJournalEntryRepository
 import altak.ledger.infrastructure.persistence.RepositoryChartOfAccounts
@@ -34,13 +36,14 @@ class RecordAccountEntryServiceTest {
     private val eur = Currency.getInstance("EUR")
     private val jpy = Currency.getInstance("JPY")
     private val clock = fixedClock()
+    private val factory = accountFactory(clock)
     private val accounts = InMemoryAccountRepository()
     private val entries = InMemoryJournalEntryRepository()
     private val transactions = CountingTransactionManager()
-    private val postings = PostingFactory(RepositoryChartOfAccounts(accounts, ids, clock), ids, clock)
+    private val postings = PostingFactory(RepositoryChartOfAccounts(accounts, factory), journalEntryFactory(clock), clock)
     private val service = RecordAccountEntryService(accounts, postings, RepositoryPostingStore(accounts, entries), transactions)
 
-    private val alice = Account.forHolder("Alice", eur, ids, clock, AccountReference("ACC-Alice".uppercase())).also(accounts::save)
+    private val alice = factory.forHolder("Alice", eur, AccountReference("ACC-Alice".uppercase())).also(accounts::save)
 
     private fun record(
         type: MovementType,
@@ -53,7 +56,7 @@ class RecordAccountEntryServiceTest {
 
     private fun balanceOf(account: Account) =
         BalancesCalculator(accounts, entries)
-            .calculate(BalanceQuery(NOW, account.id), Cursor(50))
+            .calculate(BalanceQuery(TODAY, account.id), Cursor(50))
             .items
             .single()
             .amount
@@ -66,7 +69,12 @@ class RecordAccountEntryServiceTest {
 
         assertEquals("Deposit", entry.description)
         assertEquals(NOW, entry.createdAt)
-        assertEquals(listOf(BigDecimal("10.50"), BigDecimal("10.50")), entry.lines.map { it.amount })
+        assertEquals(eur, entry.currency)
+        assertEquals(
+            setOf("ACC-ALICE", "CASH-EUR"),
+            entry.lines.map { it.reference }.toSet(),
+        )
+        assertEquals(listOf("10.50", "10.50"), entry.lines.map { it.amount })
         assertEquals("CREDIT", entry.lines.single { it.accountId == alice.id.toString() }.direction)
         assertEquals("DEBIT", entry.lines.single { it.accountId != alice.id.toString() }.direction)
     }
@@ -118,7 +126,7 @@ class RecordAccountEntryServiceTest {
 
     @Test
     fun `keeps total debits equal to total credits across a run of movements`() {
-        val bob = Account.forHolder("Bob", eur, ids, clock, AccountReference("ACC-Bob".uppercase())).also(accounts::save)
+        val bob = factory.forHolder("Bob", eur, AccountReference("ACC-Bob".uppercase())).also(accounts::save)
 
         record(MovementType.DEPOSIT, "10.00")
         record(MovementType.DEPOSIT, "2.50", account = bob)
@@ -138,7 +146,7 @@ class RecordAccountEntryServiceTest {
 
     @Test
     fun `the balance projected onto an account agrees with the journal`() {
-        val bob = Account.forHolder("Bob", eur, ids, clock, AccountReference("ACC-Bob".uppercase())).also(accounts::save)
+        val bob = factory.forHolder("Bob", eur, AccountReference("ACC-Bob".uppercase())).also(accounts::save)
 
         record(MovementType.DEPOSIT, "10.00")
         record(MovementType.DEPOSIT, "2.50", account = bob)
@@ -157,7 +165,7 @@ class RecordAccountEntryServiceTest {
 
     @Test
     fun `counts amounts in the currency's own precision`() {
-        val yuki = Account.forHolder("Yuki", jpy, ids, clock, AccountReference("ACC-Yuki".uppercase())).also(accounts::save)
+        val yuki = factory.forHolder("Yuki", jpy, AccountReference("ACC-Yuki".uppercase())).also(accounts::save)
 
         record(MovementType.DEPOSIT, "1000", account = yuki)
 

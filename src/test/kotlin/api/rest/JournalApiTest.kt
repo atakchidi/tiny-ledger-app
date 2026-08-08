@@ -12,6 +12,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
@@ -34,12 +35,17 @@ class JournalApiTest {
         type: String = "DEPOSIT",
         amount: String = "10.00",
         description: String? = null,
+        occurredOn: String? = null,
     ) = post("/journal/entries") {
         contentType(ContentType.Application.Json)
         setBody(
-            description
-                ?.let { """{"account":"$account","type":"$type","amount":$amount,"description":"$it"}""" }
-                ?: """{"account":"$account","type":"$type","amount":$amount}""",
+            listOfNotNull(
+                """"account":"$account"""",
+                """"type":"$type"""",
+                """"amount":$amount""",
+                description?.let { """"description":"$it"""" },
+                occurredOn?.let { """"occurredOn":"$it"""" },
+            ).joinToString(prefix = "{", postfix = "}"),
         )
     }
 
@@ -68,9 +74,9 @@ class JournalApiTest {
             assertContains(this, """"description":"Deposit"""")
             assertContains(this, """"direction":"CREDIT"""")
             assertContains(this, """"direction":"DEBIT"""")
-            assertContains(this, """"amount":10.50""")
-            assertContains(this, """"totalDebit":10.50""")
-            assertContains(this, """"totalCredit":10.50""")
+            assertContains(this, """"amount":"10.50"""")
+            assertContains(this, """"totalDebit":"10.50"""")
+            assertContains(this, """"totalCredit":"10.50"""")
         }
         assertEquals("10.50", client.balances("?account=$alice").amountOf("ACC-ALICE"))
     }
@@ -117,6 +123,71 @@ class JournalApiTest {
     }
 
     @Test
+    fun `takes an entry dated back to the day it happened`() = testApplication {
+        startServer()
+        client.openAccount()
+
+        val entry = client.record(amount = "10.00", occurredOn = "2026-01-31")
+
+        assertEquals(HttpStatusCode.Created, entry.status)
+        assertEquals("2026-01-31", entry.field("occurredOn"))
+        assertEquals("0.00", client.balances("?account=ACC-ALICE&onDate=2026-01-30").amountOf("ACC-ALICE"))
+        assertEquals("10.00", client.balances("?account=ACC-ALICE&onDate=2026-01-31").amountOf("ACC-ALICE"))
+    }
+
+    @Test
+    fun `refuses an entry dated after today`() = testApplication {
+        startServer()
+        client.openAccount()
+
+        val entry = client.record(amount = "10.00", occurredOn = "2099-12-31")
+
+        assertEquals(HttpStatusCode.BadRequest, entry.status)
+        assertContains(entry.bodyAsText(), "after today")
+    }
+
+    @Test
+    fun `names the account each side of an entry lands on`() = testApplication {
+        startServer()
+        client.openAccount()
+        client.record(amount = "10.00")
+
+        val entry = client.entriesOf().records().single().jsonObject
+
+        assertEquals("EUR", entry.getValue("currency").jsonPrimitive.content)
+        assertEquals(
+            setOf("ACC-ALICE", "CASH-EUR"),
+            entry.getValue("lines").jsonArray.map { it.jsonObject.getValue("reference").jsonPrimitive.content }.toSet(),
+        )
+    }
+
+    @Test
+    fun `orders the entries by the day they happened when asked`() = testApplication {
+        startServer()
+        client.openAccount()
+        val january = client.record(amount = "10.00", occurredOn = "2026-01-31").id()
+        val march = client.record(amount = "4.00", occurredOn = "2026-03-15").id()
+
+        val newestFirst = client.entriesOf(query = "&sort=occurredOn&direction=DESC")
+
+        assertEquals(
+            listOf(march, january),
+            newestFirst.records().map { it.jsonObject.getValue("id").jsonPrimitive.content },
+        )
+    }
+
+    @Test
+    fun `refuses to order the entries by a field it does not offer`() = testApplication {
+        startServer()
+        client.openAccount()
+
+        val response = client.entriesOf(query = "&sort=description")
+
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertContains(response.bodyAsText(), "sort: must be one of id, occurredOn")
+    }
+
+    @Test
     fun `shows the entries of an account`() = testApplication {
         startServer()
         client.openAccount()
@@ -153,12 +224,12 @@ class JournalApiTest {
         client.openAccount()
         client.record(amount = "10.00")
 
-        val before = client.balances("?account=ACC-ALICE&onDate=2020-01-01T00:00:00Z")
+        val before = client.balances("?account=ACC-ALICE&onDate=2020-01-01")
         val now = client.balances("?account=ACC-ALICE")
 
         assertEquals("0.00", before.amountOf("ACC-ALICE"))
         assertEquals("10.00", now.amountOf("ACC-ALICE"))
-        assertEquals("2020-01-01T00:00:00Z", before.records().single().jsonObject.getValue("onDate").jsonPrimitive.content)
+        assertEquals("2020-01-01", before.records().single().jsonObject.getValue("onDate").jsonPrimitive.content)
     }
 
     @Test
@@ -219,7 +290,7 @@ class JournalApiTest {
         assertEquals(HttpStatusCode.BadRequest, cursor.status)
         assertContains(cursor.bodyAsText(), "is not an identifier")
         assertEquals(HttpStatusCode.BadRequest, date.status)
-        assertContains(date.bodyAsText(), "is not an ISO-8601 moment")
+        assertContains(date.bodyAsText(), "is not a date, as YYYY-MM-DD")
     }
 
     @Test

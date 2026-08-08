@@ -1,6 +1,5 @@
 package altak.ledger.application.account
 
-import altak.ledger.application.shared.BigDecimalSerializer
 import altak.ledger.application.shared.CurrencySerializer
 import altak.ledger.application.shared.UuidSerializer
 import altak.ledger.domain.account.AccountReference
@@ -11,7 +10,6 @@ import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
 import kotlinx.serialization.Serializable
 import org.hibernate.validator.constraints.Length
-import java.math.BigDecimal
 import java.util.Currency
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
@@ -58,8 +56,9 @@ data class ViewAccountDto(
 
     val type: AccountType,
 
-    @Serializable(with = BigDecimalSerializer::class)
-    val balance: BigDecimal,
+    @JsonSchema.Description("What the ledger owes the holder right now")
+    @JsonSchema.Example("10.50")
+    val balance: String,
 
     val createdAt: Instant,
 

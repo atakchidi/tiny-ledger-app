@@ -4,12 +4,14 @@ logback = "1.5.35"
 jakarta-validation = "3.1.1"
 hibernate-validator = "9.0.1.Final"
 expressly = "6.0.0"
+kotlinx-datetime = "0.7.1"
 
 [libraries]
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 jakarta-validation-api = { module = "jakarta.validation:jakarta.validation-api", version.ref = "jakarta-validation" }
 hibernate-validator = { module = "org.hibernate.validator:hibernate-validator", version.ref = "hibernate-validator" }
 expressly = { module = "org.glassfish.expressly:expressly", version.ref = "expressly" }
+kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

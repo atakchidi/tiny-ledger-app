@@ -26,6 +26,14 @@ sdk install java 21.0.5-tem
 
 ## Using it
 
+The server fills itself with sample data at start-up — five holders across three currencies and
+eighteen entries dated across four months — so every endpoint has something to show before anything
+is typed in, including balances read as of a past date. The data
+lives in `src/main/resources/seed.json` and is posted to the server's own API once it is listening,
+so a record that no request could have made fails start-up instead of reaching the books. None of the
+seeded references is the one the documentation uses in its examples, so a first **Try it out** on
+`POST /accounts` still opens an account rather than colliding with a seeded one.
+
 Open the server's address in a browser for **Swagger UI** — every endpoint with its parameters and
 responses, and a **Try it out** button on each one, so the whole ledger can be driven from the page.
 The document behind it is generated from the live routing tree, so it cannot drift from the routes
@@ -46,6 +54,11 @@ The Gradle wrapper is committed, so from the project root (or docker container):
 | `./gradlew run`   | Run the server    |
 | `./gradlew test`  | Run the tests     |
 | `./gradlew build` | Build the project |
+
+### Time zone
+
+The books keep one calendar, taken from the machine's zone, so an accounting day is the same day for
+every caller. The Docker image sets `TZ=Europe/Riga`; override it with `-e TZ=…`.
 
 ### Port
 

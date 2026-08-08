@@ -10,6 +10,7 @@ import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonEncoder
 import kotlinx.serialization.json.JsonUnquotedLiteral
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.datetime.LocalDate
 import java.math.BigDecimal
 import java.util.Currency
 import kotlin.time.Instant
@@ -66,6 +67,22 @@ object UuidSerializer : KSerializer<Uuid> {
                 Uuid.parse(literal)
             } catch (notAnId: IllegalArgumentException) {
                 throw MalformedValue(literal, "an identifier")
+            }
+        }
+}
+
+object LocalDateSerializer : KSerializer<LocalDate> {
+
+    override val descriptor = PrimitiveSerialDescriptor("LocalDate", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: LocalDate) = encoder.encodeString(value.toString())
+
+    override fun deserialize(decoder: Decoder): LocalDate =
+        decoder.literal().let { literal ->
+            try {
+                LocalDate.parse(literal)
+            } catch (notADate: IllegalArgumentException) {
+                throw MalformedValue(literal, "a date, as YYYY-MM-DD")
             }
         }
 }

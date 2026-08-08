@@ -1,7 +1,7 @@
 package altak.ledger
 
+import altak.ledger.infrastructure.ktor.plugins.configureSeeding
 import altak.ledger.infrastructure.ktor.rootModule
-import io.ktor.server.application.Application
 import io.ktor.server.engine.embeddedServer
 
 private const val DEFAULT_PORT = 8080
@@ -17,10 +17,14 @@ private fun resolvePort(): Int {
 }
 
 fun main(args: Array<String>) {
+    val port = resolvePort()
+
     embeddedServer(
         factory = io.ktor.server.netty.Netty,
-        port = resolvePort(),
+        port = port,
         host = "0.0.0.0",
-        module = Application::rootModule
-    ).start(wait = true)
+    ) {
+        rootModule()
+        configureSeeding(port)
+    }.start(wait = true)
 }

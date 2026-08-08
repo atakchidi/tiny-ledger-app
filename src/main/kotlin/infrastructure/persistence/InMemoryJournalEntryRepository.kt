@@ -7,8 +7,8 @@ import altak.ledger.domain.journal.EntryId
 import altak.ledger.domain.journal.EntryLine
 import altak.ledger.domain.journal.JournalEntry
 import altak.ledger.domain.journal.JournalEntryRepository
+import kotlinx.datetime.LocalDate
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.time.Instant
 import java.util.concurrent.CopyOnWriteArrayList
 
 class InMemoryJournalEntryRepository : JournalEntryRepository {
@@ -24,9 +24,9 @@ class InMemoryJournalEntryRepository : JournalEntryRepository {
             }
     }
 
-    override fun linesOf(id: AccountId, until: Instant): List<EntryLine> =
+    override fun linesOf(id: AccountId, until: LocalDate): List<EntryLine> =
         entriesByAccount[id].orEmpty()
-            .filter { it.createdAt <= until }
+            .filter { it.occurredOn <= until }
             .flatMap { entry -> entry.lines.filter { it.accountId == id } }
 
     override fun byAccount(id: AccountId, cursor: Cursor<EntryId>): Page<JournalEntry> =

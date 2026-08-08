@@ -1,5 +1,8 @@
 package altak.ledger.domain
 
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import java.math.BigDecimal
 import java.util.Currency
 import kotlin.time.Clock
@@ -38,6 +41,8 @@ data class Money(val minorUnits: Long, val currency: Currency) {
 
     fun toDecimal(): BigDecimal = BigDecimal.valueOf(minorUnits, currency.fractionDigits)
 
+    fun toPlainString(): String = toDecimal().toPlainString()
+
     companion object {
         fun zero(currency: Currency) = Money(0, currency)
 
@@ -57,4 +62,11 @@ data class Money(val minorUnits: Long, val currency: Currency) {
 
 fun interface IdGenerator {
     fun nextId(clock: Clock): Uuid
+}
+
+// A Clock hands out instants, which have no date until a zone says where midnight falls. The books
+// keep one calendar for that: an accounting day is the same day for every caller, wherever they are.
+class LedgerCalendar(private val clock: Clock, private val zone: TimeZone) {
+
+    fun today(): LocalDate = clock.now().toLocalDateTime(zone).date
 }

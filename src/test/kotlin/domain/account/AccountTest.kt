@@ -4,8 +4,8 @@ import altak.ledger.NOW
 import altak.ledger.domain.Money
 import altak.ledger.domain.journal.Direction
 import altak.ledger.domain.journal.EntryLine
+import altak.ledger.accountFactory
 import altak.ledger.fixedClock
-import altak.ledger.ids
 import java.util.Currency
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -16,9 +16,10 @@ class AccountTest {
     private val eur = Currency.getInstance("EUR")
     private val usd = Currency.getInstance("USD")
     private val clock = fixedClock()
+    private val factory = accountFactory(clock)
 
-    private val alice = Account.forHolder("Alice", eur, ids, clock, AccountReference("ACC-Alice".uppercase()))
-    private val cash = Account.internal(AccountRole.CASH, eur, ids, clock)
+    private val alice = factory.forHolder("Alice", eur, AccountReference("ACC-Alice".uppercase()))
+    private val cash = factory.internal(AccountRole.CASH, eur)
 
     @Test
     fun `takes its creation time and a version 7 id from the clock`() {
@@ -28,7 +29,7 @@ class AccountTest {
 
     @Test
     fun `keeps the reference the holder brought`() {
-        val named = Account.forHolder("Alice", eur, ids, clock, AccountReference("ACC-000123"))
+        val named = factory.forHolder("Alice", eur, AccountReference("ACC-000123"))
 
         assertEquals("ACC-000123", named.reference.toString())
     }

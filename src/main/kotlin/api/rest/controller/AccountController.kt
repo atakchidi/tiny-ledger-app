@@ -10,6 +10,8 @@ import altak.ledger.api.rest.inject
 import altak.ledger.api.rest.pages
 import altak.ledger.api.rest.receiveQuery
 import altak.ledger.api.rest.refuses
+import altak.ledger.api.rest.Sortable
+import altak.ledger.api.rest.sortedWithin
 import altak.ledger.application.account.OpenAccountDto
 import altak.ledger.application.account.ViewAccountDto
 import altak.ledger.application.account.service.ListAccounts
@@ -31,6 +33,8 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 import io.ktor.server.util.getOrFail
 import io.ktor.utils.io.ExperimentalKtorApi
+
+private val accountsSortableBy = Sortable("reference")
 
 val accountController = RestController {
     route("/accounts") {
@@ -56,15 +60,17 @@ val accountController = RestController {
 
         get {
             val service = inject<ListAccountsService>()
+            val page = call.receiveQuery<CursorDto>().sortedWithin(accountsSortableBy)
+
             call.respond(
-                service.execute(ListAccounts(call.receiveQuery<CursorDto>())).asApiResponse()
+                service.execute(ListAccounts(page)).asApiResponse()
             )
         }.describe {
             operationId = "listAccounts"
             summary = "List accounts"
             description = "Every account the ledger keeps, the cash accounts behind the holders included."
             tag("accounts")
-            pages("accounts")
+            pages("accounts", accountsSortableBy)
 
             responses {
                 answers<ApiResponse.Listing<ViewAccountDto>>(OK, "A page of the accounts on the books")

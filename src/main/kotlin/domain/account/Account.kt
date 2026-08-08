@@ -1,7 +1,6 @@
 package altak.ledger.domain.account
 
 import altak.ledger.domain.AggregateRoot
-import altak.ledger.domain.IdGenerator
 import altak.ledger.domain.LedgerException
 import altak.ledger.domain.Money
 import altak.ledger.domain.journal.Direction
@@ -14,7 +13,6 @@ import kotlin.uuid.Uuid
 @JvmInline
 value class AccountId(val value: Uuid) {
     constructor(value: String) : this(Uuid.parse(value))
-    constructor(generator: IdGenerator, clock: Clock) : this(generator.nextId(clock))
 
     override fun toString(): String = value.toString()
 }
@@ -84,36 +82,6 @@ data class Account(
     class CurrencyMismatch(message: String) : LedgerException(message)
 
     class ForeignLine(message: String) : LedgerException(message)
-
-    companion object {
-        fun forHolder(
-            name: String,
-            currency: Currency,
-            ids: IdGenerator,
-            clock: Clock,
-            reference: AccountReference,
-        ): Account {
-            return Account(
-                id = AccountId(ids, clock),
-                reference = reference,
-                name = name,
-                currency = currency,
-                type = AccountType.LIABILITY,
-                createdAt = clock.now(),
-            )
-        }
-
-        fun internal(role: AccountRole, currency: Currency, ids: IdGenerator, clock: Clock): Account {
-            return Account(
-                id = AccountId(ids, clock),
-                reference = role.referenceFor(currency),
-                name = "${role.title} ${currency.currencyCode}",
-                currency = currency,
-                type = role.type,
-                createdAt = clock.now(),
-            )
-        }
-    }
 
     fun sideFor(effect: Effect): Direction = type.direction(effect)
 

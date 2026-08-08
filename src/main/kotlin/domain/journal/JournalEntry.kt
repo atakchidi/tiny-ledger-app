@@ -1,11 +1,11 @@
 package altak.ledger.domain.journal
 
 import altak.ledger.domain.AggregateRoot
-import altak.ledger.domain.IdGenerator
 import altak.ledger.domain.LedgerException
 import altak.ledger.domain.Money
 import altak.ledger.domain.account.AccountId
-import kotlin.time.Clock
+import kotlinx.datetime.LocalDate
+import java.util.Currency
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
@@ -26,7 +26,6 @@ enum class Direction {
 @JvmInline
 value class EntryId(val value: Uuid) {
     override fun toString(): String = value.toString()
-    constructor(generator: IdGenerator, clock: Clock) : this(generator.nextId(clock))
 }
 
 data class EntryLine(
@@ -48,19 +47,19 @@ data class EntryLine(
 data class JournalEntry(
     override val id: EntryId,
     val description: String,
+    val occurredOn: LocalDate,
     override val createdAt: Instant,
     val lines: List<EntryLine>,
     override val updatedAt: Instant = createdAt,
 ) : AggregateRoot<EntryId> {
-
-    constructor(description: String, lines: List<EntryLine>, ids: IdGenerator, clock: Clock) :
-        this(EntryId(ids, clock), description, clock.now(), lines)
 
     class TooFewLines(message: String) : LedgerException(message)
 
     class MixedCurrencies(message: String) : LedgerException(message)
 
     class Unbalanced(message: String) : LedgerException(message)
+
+    val currency: Currency get() = lines.first().amount.currency
 
     val debited: Money by lazy { totalFor(Direction.DEBIT) }
 

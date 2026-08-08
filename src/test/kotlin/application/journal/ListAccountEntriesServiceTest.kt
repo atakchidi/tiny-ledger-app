@@ -14,14 +14,14 @@ import altak.ledger.domain.account.AccountRole
 import altak.ledger.domain.journal.Direction
 import altak.ledger.domain.journal.EntryId
 import altak.ledger.domain.journal.EntryLine
-import altak.ledger.domain.journal.JournalEntry
+import altak.ledger.accountFactory
+import altak.ledger.advancingClock
 import altak.ledger.fixedClock
-import altak.ledger.ids
+import altak.ledger.journalEntryFactory
 import altak.ledger.infrastructure.persistence.InMemoryAccountRepository
 import altak.ledger.infrastructure.persistence.InMemoryJournalEntryRepository
 import java.util.Currency
 import kotlin.uuid.Uuid
-import java.math.BigDecimal
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -31,24 +31,24 @@ class ListAccountEntriesServiceTest {
 
     private val eur = Currency.getInstance("EUR")
     private val clock = fixedClock()
+    private val factory = accountFactory(clock)
+    private val journal = journalEntryFactory(advancingClock())
     private val accounts = InMemoryAccountRepository()
     private val entries = InMemoryJournalEntryRepository()
     private val transactions = CountingTransactionManager()
     private val service = ListAccountEntriesService(accounts, entries, transactions)
 
-    private val alice = Account.forHolder("Alice", eur, ids, clock, AccountReference("ACC-Alice".uppercase())).also(accounts::save)
-    private val bob = Account.forHolder("Bob", eur, ids, clock, AccountReference("ACC-Bob".uppercase())).also(accounts::save)
-    private val cash = Account.internal(AccountRole.CASH, eur, ids, clock).also(accounts::save)
+    private val alice = factory.forHolder("Alice", eur, AccountReference("ACC-Alice".uppercase())).also(accounts::save)
+    private val bob = factory.forHolder("Bob", eur, AccountReference("ACC-Bob".uppercase())).also(accounts::save)
+    private val cash = factory.internal(AccountRole.CASH, eur).also(accounts::save)
 
     private fun movementOf(holder: Account, minorUnits: Long) =
-        JournalEntry(
+        journal.create(
             "Deposit",
             listOf(
                 EntryLine(holder.id, Direction.CREDIT, Money(minorUnits, eur)),
                 EntryLine(cash.id, Direction.DEBIT, Money(minorUnits, eur)),
             ),
-            ids,
-            clock,
         ).also(entries::save)
 
     private fun history(after: Uuid? = null, limit: Int = 50) =
@@ -69,8 +69,11 @@ class ListAccountEntriesServiceTest {
         val entry = history().items.single()
 
         assertEquals("Deposit", entry.description)
-        assertEquals(BigDecimal("10.00"), entry.lines.single { it.accountId == alice.id.toString() }.amount)
+        assertEquals("10.00", entry.lines.single { it.accountId == alice.id.toString() }.amount)
         assertEquals("CREDIT", entry.lines.single { it.accountId == alice.id.toString() }.direction)
+        assertEquals(eur, entry.currency)
+        assertEquals("ACC-ALICE", entry.lines.single { it.accountId == alice.id.toString() }.reference)
+        assertEquals("CASH-EUR", entry.lines.single { it.accountId == cash.id.toString() }.reference)
         assertEquals("DEBIT", entry.lines.single { it.accountId == cash.id.toString() }.direction)
     }
 

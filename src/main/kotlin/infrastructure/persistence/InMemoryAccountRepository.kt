@@ -22,5 +22,5 @@ class InMemoryAccountRepository : AccountRepository {
         accountsById.values.find { it.reference == reference }
 
     override fun all(cursor: Cursor<AccountId>): Page<Account> =
-        accountsById.values.sortedBy { it.id.toString() }.pageFrom(cursor)
+        accountsById.values.toList().pageFrom(cursor)
 }
