@@ -84,8 +84,8 @@ val journalController = RestController {
         }.describe {
             operationId = "recordAccountEntry"
             summary = "Record an entry against an account"
-            description = "A deposit raises what the ledger owes the holder and the cash it holds alike; " +
-                "a withdrawal lowers both. The movement names which."
+            description = "A movement posts two lines that balance: what the ledger owes the holder " +
+                "and the cash it holds move together, and the type names which way they go."
             tag("journal")
             accepts<RecordAccountEntryDto>()
 

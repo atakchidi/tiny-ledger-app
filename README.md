@@ -1,6 +1,6 @@
 # ledger
 
-A small double-entry ledger: open accounts, record deposits and withdrawals, read a balance and a
+A small double-entry ledger: open accounts, record entries against them, read a balance and a
 history. Every movement is a balanced journal entry, so what the ledger holds always equals what it
 owes. Data lives in memory and is gone when the process stops.
 
@@ -52,7 +52,7 @@ that actually exist.
 | `POST /accounts` | Open an account |
 | `GET /accounts` | List accounts, the cash accounts behind them included |
 | `GET /accounts/{account}` | One account, by id or by reference |
-| `POST /journal/entries` | Record a deposit or a withdrawal |
+| `POST /journal/entries` | Record an entry against an account |
 | `GET /journal/entries` | The entries the journal holds, one account's or all of them |
 | `GET /journal/balances` | What the ledger owes and holds, on a date |
 
