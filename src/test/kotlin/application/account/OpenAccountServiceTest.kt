@@ -8,6 +8,7 @@ import altak.ledger.domain.Money
 import altak.ledger.domain.account.AccountReference
 import altak.ledger.domain.account.AccountType
 import altak.ledger.accountFactory
+import altak.ledger.domain.account.AccountId
 import altak.ledger.infrastructure.persistence.InMemoryAccountRepository
 import java.util.Currency
 import kotlin.test.Test
@@ -47,7 +48,7 @@ class OpenAccountServiceTest {
     fun `keeps the account for later`() {
         val alice = open()
 
-        val kept = accounts.byId(alice.id.toString().toAccountId())
+        val kept = accounts.byId(AccountId(alice.id))
 
         assertEquals("Alice", kept?.name)
         assertEquals(AccountType.LIABILITY, kept?.type)

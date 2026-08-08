@@ -2,8 +2,10 @@ package altak.ledger.application.journal
 
 import altak.ledger.application.shared.BigDecimalSerializer
 import altak.ledger.application.shared.CurrencySerializer
+import altak.ledger.application.shared.EnumSerializer
 import altak.ledger.application.shared.LocalDateSerializer
 import altak.ledger.application.shared.UuidSerializer
+import altak.ledger.domain.account.AccountType
 import altak.ledger.domain.journal.Direction
 import io.ktor.openapi.JsonSchema
 import altak.ledger.domain.journal.MovementType
@@ -13,11 +15,15 @@ import jakarta.validation.constraints.PastOrPresent
 import jakarta.validation.constraints.Size
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.serializer
 import org.hibernate.validator.constraints.Length
 import java.math.BigDecimal
 import java.util.Currency
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
+
+object MovementTypeSerializer :
+    EnumSerializer<MovementType>(MovementType.entries, serializer<MovementType>())
 
 @Serializable
 data class RecordAccountEntryDto(
@@ -27,6 +33,7 @@ data class RecordAccountEntryDto(
     val account: String,
 
     @JsonSchema.Description("Which way the money goes: a DEPOSIT pays in, a WITHDRAWAL takes out")
+    @Serializable(with = MovementTypeSerializer::class)
     val type: MovementType,
 
     @field:DecimalMin(value = "0", inclusive = false, message = "must be a positive amount")
@@ -54,10 +61,10 @@ data class RecordAccountEntryDto(
 
 @Serializable
 data class EntryQueryDto(
-    @JsonSchema.Description("The id of an account, or the reference it is known by outside")
+    @JsonSchema.Description("An account id or the reference it is known by outside; every entry if left out")
     @JsonSchema.Example("ACC-000123")
     @field:Length(min=3, max = 36)
-    val account: String,
+    val account: String? = null,
 )
 
 @Serializable
@@ -104,6 +111,12 @@ data class ViewEntryLineDto(
     @JsonSchema.Description("The reference that account is known by outside")
     @JsonSchema.Example("ACC-000123")
     val reference: String,
+
+    @JsonSchema.Description(
+        "What kind of account this is. Read with the direction, it says whether the amount raised " +
+            "the account or lowered it: a line on its normal side raises it, the other side lowers it.",
+    )
+    val accountType: AccountType,
 
     @JsonSchema.Description("Which side of the account the amount lands on")
     val direction: String,

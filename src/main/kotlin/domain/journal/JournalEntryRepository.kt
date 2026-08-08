@@ -9,6 +9,8 @@ interface JournalEntryRepository {
 
     fun save(entry: JournalEntry)
 
+    fun all(cursor: Cursor<EntryId>): Page<JournalEntry>
+
     fun byAccount(id: AccountId, cursor: Cursor<EntryId>): Page<JournalEntry>
 
     fun linesOf(id: AccountId, until: LocalDate): List<EntryLine>

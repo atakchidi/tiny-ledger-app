@@ -47,6 +47,8 @@ class JournalApiTest {
     private suspend fun HttpClient.entriesOf(account: String = "ACC-ALICE", query: String = "") =
         get("/journal/entries?account=$account$query")
 
+    private suspend fun HttpClient.entries(query: String = "") = get("/journal/entries$query")
+
     private suspend fun HttpClient.balances(query: String = "") = get("/journal/balances$query")
 
     private suspend fun HttpResponse.amountOf(reference: String) =
@@ -73,6 +75,24 @@ class JournalApiTest {
             assertContains(this, """"totalCredit":"10.50"""")
         }
         assertEquals("10.50", client.balances("?account=$alice").amountOf("ACC-ALICE"))
+    }
+
+    @Test
+    fun `names the type of account each line lands on, so a reader can tell a rise from a fall`() = apiTest {
+        client.openAccount()
+
+        val lines = client.record(amount = "10.50").data()
+            .getValue("lines").jsonArray
+            .map { it.jsonObject }
+            .associate { it.getValue("reference").jsonPrimitive.content to it }
+
+        val holder = lines.getValue("ACC-ALICE")
+        val cash = lines.getValue("CASH-EUR")
+
+        assertEquals("LIABILITY", holder.getValue("accountType").jsonPrimitive.content)
+        assertEquals("CREDIT", holder.getValue("direction").jsonPrimitive.content)
+        assertEquals("ASSET", cash.getValue("accountType").jsonPrimitive.content)
+        assertEquals("DEBIT", cash.getValue("direction").jsonPrimitive.content)
     }
 
     @Test
@@ -147,6 +167,30 @@ class JournalApiTest {
             setOf("ACC-ALICE", "CASH-EUR"),
             entry.getValue("lines").jsonArray.map { it.jsonObject.getValue("reference").jsonPrimitive.content }.toSet(),
         )
+    }
+
+    @Test
+    fun `lists the whole journal when no account is named, and one holder's when there is`() = apiTest {
+        client.openAccount()
+        client.openAccount(reference = "ACC-BOB")
+        val hers = client.record(amount = "10.00").id()
+        val his = client.record(account = "ACC-BOB", amount = "4.00").id()
+
+        val whole = client.entries()
+        val alices = client.entriesOf()
+
+        assertEquals(HttpStatusCode.OK, whole.status)
+        assertEquals(setOf(hers, his), whole.records().map { it.jsonObject.getValue("id").jsonPrimitive.content }.toSet())
+        assertEquals(listOf(hers), alices.records().map { it.jsonObject.getValue("id").jsonPrimitive.content })
+    }
+
+    @Test
+    fun `still refuses an account it does not keep`() = apiTest {
+        client.openAccount()
+
+        val response = client.entriesOf(account = "ACC-NOBODY")
+
+        assertEquals(HttpStatusCode.NotFound, response.status)
     }
 
     @Test
@@ -244,6 +288,16 @@ class JournalApiTest {
         assertContains(notANumber.bodyAsText(), """\"ten\" is not a decimal number""")
         assertEquals(HttpStatusCode.BadRequest, nothing.status)
         assertContains(nothing.bodyAsText(), "must be a positive amount")
+    }
+
+    @Test
+    fun `names the movements it knows when it is given one it does not`() = apiTest {
+        client.openAccount()
+
+        val unknown = client.record(type = "TRANSFER")
+
+        assertEquals(HttpStatusCode.BadRequest, unknown.status)
+        assertContains(unknown.bodyAsText(), """\"TRANSFER\" is not one of DEPOSIT, WITHDRAWAL""")
     }
 
     @Test

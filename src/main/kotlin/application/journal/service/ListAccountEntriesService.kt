@@ -1,9 +1,8 @@
 package altak.ledger.application.journal.service
 
-import altak.ledger.application.account.AccountNotFound
-import altak.ledger.application.account.byIdOrReference
+import altak.ledger.application.account.find
 import altak.ledger.application.journal.EntryQueryDto
-import altak.ledger.application.journal.References
+import altak.ledger.application.journal.Accounts
 import altak.ledger.application.journal.toViewDto
 import altak.ledger.application.shared.CursorDto
 import altak.ledger.domain.TransactionManager
@@ -16,15 +15,10 @@ data class ListAccountEntries(val query: EntryQueryDto, val cursor: CursorDto)
 
 private val ListAccountEntries.page get() = cursor.toDomain(::EntryId)
 
-// One lookup per account the page touches, rather than one per line; a database would read them in
-// a single query.
-private fun AccountRepository.referencesOn(entries: List<JournalEntry>): References {
-    val references = entries.flatMap { it.lines }
-        .map { it.accountId }
-        .distinct()
-        .associateWith { byId(it)?.reference ?: error("Entry line names account $it, which is not on the books") }
+private fun AccountRepository.accountsOn(entries: List<JournalEntry>): Accounts {
+    val accounts = byIds(entries.flatMap { it.lines }.map { it.accountId }.toSet()).associateBy { it.id }
 
-    return references::getValue
+    return { id -> accounts[id] ?: error("Entry line names account $id, which is not on the books") }
 }
 
 class ListAccountEntriesService(
@@ -35,12 +29,12 @@ class ListAccountEntriesService(
 
     fun execute(command: ListAccountEntries) = transaction {
         with(command) {
-            val holder = accounts.byIdOrReference(query.account) ?: throw AccountNotFound(query.account)
+            val holder = query.account?.let { accounts.find(it) }
 
-            val history = entries.byAccount(holder.id, page)
-            val references = accounts.referencesOn(history.items)
+            val history = holder?.let { entries.byAccount(it.id, page) } ?: entries.all(page)
+            val onThePage = accounts.accountsOn(history.items)
 
-            history.map { it.toViewDto(references) }
+            history.map { it.toViewDto(onThePage) }
         }
     }
 }

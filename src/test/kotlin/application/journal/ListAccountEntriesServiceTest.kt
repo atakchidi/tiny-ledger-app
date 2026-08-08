@@ -54,6 +54,9 @@ class ListAccountEntriesServiceTest {
     private fun history(after: Uuid? = null, limit: Int = 50) =
         service.execute(ListAccountEntries(EntryQueryDto(alice.id.toString()), CursorDto(after, limit)))
 
+    private fun everything(after: Uuid? = null, limit: Int = 50) =
+        service.execute(ListAccountEntries(EntryQueryDto(), CursorDto(after, limit)))
+
     @Test
     fun `has nothing to show for an account that never moved`() {
         val history = history()
@@ -90,6 +93,26 @@ class ListAccountEntriesServiceTest {
         movementOf(bob, 500)
 
         assertEquals(listOf(hers.id.toString()), history().items.map { it.id.toString() })
+    }
+
+    @Test
+    fun `lists every holder's movements when no account is named`() {
+        val hers = movementOf(alice, 1000)
+        val his = movementOf(bob, 500)
+
+        assertEquals(listOf(hers.id.toString(), his.id.toString()), everything().items.map { it.id.toString() })
+    }
+
+    @Test
+    fun `walks the whole journal a page at a time`() {
+        val movements = listOf(movementOf(alice, 100), movementOf(bob, 200), movementOf(alice, 300)).map { it.id }
+
+        val firstPage = everything(limit = 2)
+        val lastPage = everything(after = Uuid.parse(firstPage.nextCursor!!), limit = 2)
+
+        assertEquals(movements.take(2).map { it.toString() }, firstPage.items.map { it.id.toString() })
+        assertEquals(movements.drop(2).map { it.toString() }, lastPage.items.map { it.id.toString() })
+        assertNull(lastPage.nextCursor)
     }
 
     @Test

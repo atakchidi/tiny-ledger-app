@@ -46,6 +46,16 @@ class InMemoryAccountRepositoryTest {
     }
 
     @Test
+    fun `reads a batch of accounts at once, asking once for a repeated id and skipping ones it has not seen`() {
+        val cash = factory.internal(AccountRole.CASH, eur)
+        listOf(alice, cash).forEach(repository::save)
+        val unknown = AccountId(Uuid.generateV7NonMonotonicAt(clock.now()))
+
+        assertEquals(listOf(alice, cash), repository.byIds(listOf(alice.id, cash.id, alice.id, unknown)))
+        assertEquals(emptyList(), repository.byIds(emptyList()))
+    }
+
+    @Test
     fun `finds a saved account by the reference it is known by outside`() {
         val cashEur = factory.internal(AccountRole.CASH, eur)
         val cashUsd = factory.internal(AccountRole.CASH, usd)
@@ -98,6 +108,14 @@ class InMemoryJournalEntryRepositoryTest {
 
         assertEquals(listOf(entry), repository.byAccount(alice.id, Cursor(50)).items)
         assertEquals(listOf(entry), repository.byAccount(cash.id, Cursor(50)).items)
+    }
+
+    @Test
+    fun `lists every entry once, however many accounts it touches`() {
+        val hers = movementOf(alice, 1000).also(repository::save)
+        val his = movementOf(bob, 500).also(repository::save)
+
+        assertEquals(listOf(hers, his), repository.all(Cursor(50)).items)
     }
 
     @Test

@@ -53,7 +53,7 @@ that actually exist.
 | `GET /accounts` | List accounts, the cash accounts behind them included |
 | `GET /accounts/{account}` | One account, by id or by reference |
 | `POST /journal/entries` | Record a deposit or a withdrawal |
-| `GET /journal/entries` | The entries of one account |
+| `GET /journal/entries` | The entries the journal holds, one account's or all of them |
 | `GET /journal/balances` | What the ledger owes and holds, on a date |
 
 `{account}` is either the id or the reference — `ACC-ALICE` and its uuid address the same account.
@@ -107,9 +107,10 @@ The Gradle wrapper is committed, so from the project root (or docker container):
 ### Wiring
 
 `src/main/resources/application.conf` names the module the server boots and the seed file it fills
-itself from. `src/test/resources/application.conf` shadows it: no seed, and a second module —
+itself from. `src/test/resources/application.conf` shadows it: a blanked seed, and a second module —
 `testDependencies` — listed after the first, where a test swaps a dependency for something it can
-control. `ktor.di.conflictPolicy = OverridePrevious` is what lets the later declaration win, so
+control. The seed is blanked rather than left out because HOCON merges every `application.conf` on
+the classpath, so an absent key would still resolve to the deployed one. `ktor.di.conflictPolicy = OverridePrevious` is what lets the later declaration win, so
 production wiring never has to know that tests exist.
 
 ### Time zone

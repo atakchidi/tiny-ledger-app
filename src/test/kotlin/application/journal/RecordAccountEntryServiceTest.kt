@@ -140,8 +140,8 @@ class RecordAccountEntryServiceTest {
         val credited = lines.filter { it.direction == Direction.CREDIT }.sumOf { it.amount.minorUnits }
 
         assertEquals(debited, credited)
-        assertEquals(850, balanceOf(alice).minorUnits + balanceOf(bob).minorUnits)
-        assertEquals(850, balanceOf(cash()!!).minorUnits)
+        assertEquals(850.toBigInteger(), balanceOf(alice).minorUnits + balanceOf(bob).minorUnits)
+        assertEquals(850.toBigInteger(), balanceOf(cash()!!).minorUnits)
     }
 
     @Test
@@ -178,6 +178,16 @@ class RecordAccountEntryServiceTest {
 
         assertFailsWith<AmountTooPrecise> { record(MovementType.DEPOSIT, "10.505") }
         assertFailsWith<AmountTooPrecise> { record(MovementType.DEPOSIT, "1000.50", account = yuki) }
+    }
+
+    @Test
+    fun `leaves the ledger untouched when it refuses`() {
+        record(MovementType.DEPOSIT, "10.00")
+
+        assertFailsWith<AmountTooPrecise> { record(MovementType.WITHDRAWAL, "0.001") }
+
+        assertEquals(Money(1000, eur), balanceOf(alice))
+        assertEquals(1, entries.byAccount(alice.id, Cursor(50)).items.size)
     }
 
     @Test

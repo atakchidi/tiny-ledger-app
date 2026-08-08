@@ -71,6 +71,22 @@ object UuidSerializer : KSerializer<Uuid> {
         }
 }
 
+abstract class EnumSerializer<T : Enum<T>>(
+    private val choices: List<T>,
+    private val delegate: KSerializer<T>,
+) : KSerializer<T> {
+
+    override val descriptor = delegate.descriptor
+
+    override fun serialize(encoder: Encoder, value: T) = delegate.serialize(encoder, value)
+
+    override fun deserialize(decoder: Decoder): T =
+        decoder.literal().let { literal ->
+            choices.firstOrNull { it.name == literal }
+                ?: throw MalformedValue(literal, "one of ${choices.joinToString { it.name }}")
+        }
+}
+
 object LocalDateSerializer : KSerializer<LocalDate> {
 
     override val descriptor = PrimitiveSerialDescriptor("LocalDate", PrimitiveKind.STRING)
@@ -83,22 +99,6 @@ object LocalDateSerializer : KSerializer<LocalDate> {
                 LocalDate.parse(literal)
             } catch (notADate: IllegalArgumentException) {
                 throw MalformedValue(literal, "a date, as YYYY-MM-DD")
-            }
-        }
-}
-
-object InstantSerializer : KSerializer<Instant> {
-
-    override val descriptor = PrimitiveSerialDescriptor("Instant", PrimitiveKind.STRING)
-
-    override fun serialize(encoder: Encoder, value: Instant) = encoder.encodeString(value.toString())
-
-    override fun deserialize(decoder: Decoder): Instant =
-        decoder.literal().let { literal ->
-            try {
-                Instant.parse(literal)
-            } catch (notAMoment: IllegalArgumentException) {
-                throw MalformedValue(literal, "an ISO-8601 moment")
             }
         }
 }

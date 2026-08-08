@@ -53,22 +53,23 @@ val journalController = RestController {
             )
         }.describe {
             operationId = "listAccountEntries"
-            summary = "List the entries of an account"
-            description = "The movements the account took part in, in the order they were recorded, " +
-                "a page at a time. Order them by the day they happened with `sort=occurredOn`. " +
-                "Pass the `nextCursor` of a page back as `after` to read the one behind it."
+            summary = "List entries"
+            description = "The movements the journal holds, in the order they were recorded, a page " +
+                "at a time. With an account it lists only the entries that account took part in; " +
+                "without one, every entry it keeps. Order them by the day they happened with " +
+                "`sort=occurredOn`. Pass the `nextCursor` of a page back as `after` to read the one behind it."
             tag("journal")
             pages("entries", entriesSortableBy)
 
             parameters {
                 query("account") {
-                    description = "The id of an account, or the reference it is known by outside"
+                    description = "An account id or the reference it is known by outside; every entry if left out"
                     schema = schemaOf<String>()
                 }
             }
 
             responses {
-                answers<ApiResponse.Listing<ViewEntryDto>>(OK, "A page of the account's history")
+                answers<ApiResponse.Listing<ViewEntryDto>>(OK, "A page of the journal")
                 refuses(BadRequest, "The page asked for could not be filled")
                 refuses(NotFound, "No account by that id")
             }

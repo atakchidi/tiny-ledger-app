@@ -1,14 +1,14 @@
 package altak.ledger.application.journal
 
+import altak.ledger.domain.account.Account
 import altak.ledger.domain.account.AccountId
-import altak.ledger.domain.account.AccountReference
 import altak.ledger.domain.journal.Balance
 import altak.ledger.domain.journal.EntryLine
 import altak.ledger.domain.journal.JournalEntry
 
-typealias References = (AccountId) -> AccountReference
+typealias Accounts = (AccountId) -> Account
 
-fun JournalEntry.toViewDto(references: References) = ViewEntryDto(
+fun JournalEntry.toViewDto(accounts: Accounts) = ViewEntryDto(
     id = id.value,
     description = description,
     occurredOn = occurredOn,
@@ -17,15 +17,18 @@ fun JournalEntry.toViewDto(references: References) = ViewEntryDto(
     currency = currency,
     totalDebit = debited.toPlainString(),
     totalCredit = credited.toPlainString(),
-    lines = lines.map { it.toViewDto(references) },
+    lines = lines.map { it.toViewDto(accounts) },
 )
 
-fun EntryLine.toViewDto(references: References) = ViewEntryLineDto(
-    accountId = accountId.toString(),
-    reference = references(accountId).toString(),
-    direction = direction.name,
-    amount = amount.toPlainString(),
-)
+fun EntryLine.toViewDto(accounts: Accounts) = accounts(accountId).let { account ->
+    ViewEntryLineDto(
+        accountId = accountId.toString(),
+        reference = account.reference.toString(),
+        accountType = account.type,
+        direction = direction.name,
+        amount = amount.toPlainString(),
+    )
+}
 
 fun Balance.toViewDto() = ViewBalanceDto(
     onDate = onDate,

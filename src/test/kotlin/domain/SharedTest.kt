@@ -4,6 +4,8 @@ import java.math.BigDecimal
 import java.util.Currency
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class SharedTest {
 
@@ -23,15 +25,40 @@ class SharedTest {
 
     @Test
     fun `takes a decimal amount into the currency's minor units`() {
-        assertEquals(Money(1050, eur), Money.of(BigDecimal("10.50"), eur))
-        assertEquals(Money(1000, eur), Money.of(BigDecimal("10"), eur))
-        assertEquals(Money(1000, jpy), Money.of(BigDecimal("1000"), jpy))
+        assertEquals(Money(1050, eur), Money(BigDecimal("10.50"), eur))
+        assertEquals(Money(1000, eur), Money(BigDecimal("10"), eur))
+        assertEquals(Money(1000, jpy), Money(BigDecimal("1000"), jpy))
     }
 
     @Test
     fun `hands an amount back in the currency's own precision`() {
         assertEquals(BigDecimal("10.50"), Money(1050, eur).toDecimal())
         assertEquals(BigDecimal("1000"), Money(1000, jpy).toDecimal())
+    }
+
+    @Test
+    fun `takes an amount whose trailing zeros are finer than the currency, since nothing is lost`() {
+        assertEquals(Money(1000, jpy), Money(BigDecimal("1000.00"), jpy))
+        assertEquals(Money(1050, eur), Money(BigDecimal("10.500"), eur))
+    }
+
+    @Test
+    fun `refuses an amount only when a digit would be lost`() {
+        assertTrue(Money.fits(BigDecimal("1000.00"), jpy))
+        assertTrue(Money.fits(BigDecimal("10.500"), eur))
+        assertFalse(Money.fits(BigDecimal("1000.05"), jpy))
+        assertFalse(Money.fits(BigDecimal("10.505"), eur))
+    }
+
+    @Test
+    fun `holds an amount larger than a machine word`() {
+        val beyondALong = BigDecimal("99999999999999999999.99")
+
+        assertEquals(beyondALong, Money(beyondALong, eur).toDecimal())
+        assertEquals(
+            Money(BigDecimal("199999999999999999999.98"), eur),
+            Money(beyondALong, eur) + Money(beyondALong, eur),
+        )
     }
 
     @Test

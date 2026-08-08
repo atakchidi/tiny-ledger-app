@@ -21,9 +21,10 @@ private data class SeedData(
     val entries: List<RecordAccountEntryDto>,
 )
 
-// A running server fills itself through its own API; a test declares no seed file and starts empty.
+// A running server fills itself through its own API. HOCON merges every application.conf on the
+// classpath, so a test cannot start empty by leaving `ledger.seed` out — it names it blank instead.
 fun Application.configureSeeding() {
-    val seedFile = environment.config.propertyOrNull("ledger.seed")?.getString() ?: return
+    val seedFile = environment.config.propertyOrNull("ledger.seed")?.getString()?.ifBlank { null } ?: return
     val ledger = "http://localhost:${environment.config.property("ktor.deployment.port").getString()}"
 
     monitor.subscribe(ServerReady) {

@@ -3,14 +3,13 @@ package altak.ledger.infrastructure.ktor.plugins
 import altak.ledger.api.rest.ErrorResponse
 import altak.ledger.application.shared.MalformedValue
 import altak.ledger.application.shared.StatusCode
+import altak.ledger.application.shared.UseCaseException
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
-import io.ktor.server.application.log
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.requestvalidation.RequestValidationException
 import io.ktor.server.plugins.statuspages.StatusPages
-import io.ktor.server.request.uri
 import io.ktor.server.response.respond
 import kotlinx.serialization.SerializationException
 
@@ -34,22 +33,20 @@ fun Application.configureStatusPages() {
             call.respond(HttpStatusCode.BadRequest, cause.explained())
         }
 
-        // An application exception names its own answer and is trusted to explain itself; anything
-        // else broke an invariant, which is a bug here rather than a mistake by the caller.
-        exception<RuntimeException> { call, cause ->
-            val answer = cause.statusCode()
-
-            call.application.log.error("${call.request.uri} answered ${answer ?: HttpStatusCode.InternalServerError}", cause)
-
-            when (answer) {
-                null -> call.respond(HttpStatusCode.InternalServerError, ErrorResponse(listOf(UNEXPECTED_FAILURE)))
+        // A use case is trusted to explain itself, but only once it has named its answer: an
+        // unannotated one is as much a mistake of this code as anything caught below.
+        exception<UseCaseException> { call, cause ->
+            when (val answer = cause.statusCode()) {
+                null -> call.respond(HttpStatusCode.InternalServerError, unexpected())
                 else -> call.respond(answer, cause.asResponse())
             }
         }
     }
 }
 
-private fun RuntimeException.statusCode() =
+private fun unexpected() = ErrorResponse(listOf(UNEXPECTED_FAILURE))
+
+private fun UseCaseException.statusCode() =
     javaClass.getAnnotation(StatusCode::class.java)
         ?.let { HttpStatusCode.fromValue(it.value) }
 

@@ -1,7 +1,6 @@
 package altak.ledger.application.journal.service
 
-import altak.ledger.application.account.AccountNotFound
-import altak.ledger.application.account.byIdOrReference
+import altak.ledger.application.account.find
 import altak.ledger.application.journal.AmountTooPrecise
 import altak.ledger.application.journal.RecordAccountEntryDto
 import altak.ledger.application.journal.toViewDto
@@ -23,7 +22,7 @@ private val RecordAccountEntry.occurredOn get() = movement.occurredOn
 private fun RecordAccountEntry.amountIn(currency: Currency): Money {
     if (!Money.fits(movement.amount, currency)) throw AmountTooPrecise(movement.amount, currency)
 
-    return Money.of(movement.amount, currency)
+    return Money(movement.amount, currency)
 }
 
 class RecordAccountEntryService(
@@ -34,12 +33,12 @@ class RecordAccountEntryService(
 ) {
     fun execute(command: RecordAccountEntry) = transactions {
         with(command) {
-            val holder = accounts.byIdOrReference(account) ?: throw AccountNotFound(account)
+            val holder = accounts.find(account)
             val posting = postings.create(holder, type, amountIn(holder.currency), description, occurredOn)
 
             store.store(posting)
 
-            posting.entry.toViewDto(posting::referenceOf)
+            posting.entry.toViewDto(posting::accountOf)
         }
     }
 }

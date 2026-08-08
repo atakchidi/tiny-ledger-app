@@ -2,6 +2,7 @@ package altak.ledger.application.shared
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.serializer
 import java.math.BigDecimal
 import java.util.Currency
 import kotlin.test.Test
@@ -10,12 +11,18 @@ import kotlin.test.assertFailsWith
 
 class SerializationTest {
 
+    private enum class Side { LEFT, RIGHT }
+
+    private object SideSerializer : EnumSerializer<Side>(Side.entries, serializer<Side>())
+
     @Serializable
     private data class Sample(
         @Serializable(with = BigDecimalSerializer::class)
         val amount: BigDecimal,
         @Serializable(with = CurrencySerializer::class)
         val currency: Currency,
+        @Serializable(with = SideSerializer::class)
+        val side: Side = Side.LEFT,
     )
 
     private fun read(json: String) = Json.decodeFromString<Sample>(json)
@@ -45,5 +52,21 @@ class SerializationTest {
 
         assertEquals("\"ten\" is not a decimal number", notANumber.message)
         assertEquals("\"eur\" is not an ISO 4217 currency code", notACurrency.message)
+    }
+
+    @Test
+    fun `reads an enum by name, and names every choice when it cannot`() {
+        assertEquals(Side.RIGHT, read("""{"amount":1,"currency":"EUR","side":"RIGHT"}""").side)
+
+        val notASide = assertFailsWith<MalformedValue> {
+            read("""{"amount":1,"currency":"EUR","side":"right"}""")
+        }
+
+        assertEquals("\"right\" is not one of LEFT, RIGHT", notASide.message)
+    }
+
+    @Test
+    fun `keeps the schema the enum itself declares`() {
+        assertEquals(serializer<Side>().descriptor, SideSerializer.descriptor)
     }
 }

@@ -1,7 +1,6 @@
 package altak.ledger.application.journal.service
 
-import altak.ledger.application.account.AccountNotFound
-import altak.ledger.application.account.byIdOrReference
+import altak.ledger.application.account.find
 import altak.ledger.application.journal.BalanceQueryDto
 import altak.ledger.application.journal.toViewDto
 import altak.ledger.application.shared.CursorDto
@@ -24,7 +23,7 @@ class ListBalancesService(
 ) {
     fun execute(command: ListBalances) = transactions {
         with(command) {
-            val accountId = query.account?.let { accounts.byIdOrReference(query.account)?.id ?: throw AccountNotFound(it) }
+            val accountId = query.account?.let { accounts.find(it).id }
             val criteria = BalanceQuery(onDate = query.onDate ?: calendar.today(), accountId = accountId)
 
             balances.calculate(criteria, page).map { it.toViewDto() }

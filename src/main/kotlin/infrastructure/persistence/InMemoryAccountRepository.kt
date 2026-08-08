@@ -17,6 +17,8 @@ class InMemoryAccountRepository : AccountRepository {
 
     override fun byId(id: AccountId) = accountsById[id]
 
+    override fun byIds(ids: Collection<AccountId>) = ids.distinct().mapNotNull { accountsById[it] }
+
     override fun byReference(reference: AccountReference) =
         accountsById.values.find { it.reference == reference }
 

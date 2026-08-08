@@ -1,9 +1,9 @@
 package altak.ledger.domain
 
-import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import java.math.BigDecimal
+import java.math.BigInteger
 import java.util.Currency
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -18,38 +18,41 @@ interface AggregateRoot<ID> {
     val updatedAt: Instant
 }
 
-data class Money(val minorUnits: Long, val currency: Currency) {
+data class Money(val minorUnits: BigInteger, val currency: Currency) {
 
-    val isPositive: Boolean get() = minorUnits > 0
+    constructor(minorUnits: Long, currency: Currency) : this(BigInteger.valueOf(minorUnits), currency)
+
+    constructor(amount: BigDecimal, currency: Currency) :
+        this(amount.setScale(currency.fractionDigits).unscaledValue(), currency)
+
+    val isPositive: Boolean get() = minorUnits.signum() > 0
 
     operator fun plus(other: Money): Money {
         require(currency == other.currency) {
             "Cannot combine ${currency.currencyCode} and ${other.currency.currencyCode} amounts"
         }
 
-        return copy(minorUnits = Math.addExact(minorUnits, other.minorUnits))
+        return copy(minorUnits = minorUnits + other.minorUnits)
     }
 
     operator fun unaryMinus() = copy(minorUnits = -minorUnits)
 
-    fun toDecimal(): BigDecimal = BigDecimal.valueOf(minorUnits, currency.fractionDigits)
+    fun toDecimal(): BigDecimal = BigDecimal(minorUnits, currency.fractionDigits)
 
     fun toPlainString(): String = toDecimal().toPlainString()
 
     companion object {
-        fun zero(currency: Currency) = Money(0, currency)
-
-        fun of(amount: BigDecimal, currency: Currency) =
-            Money(amount.setScale(currency.fractionDigits).unscaledValue().longValueExact(), currency)
+        fun zero(currency: Currency) = Money(BigInteger.ZERO, currency)
 
         // TODO: belongs in a class-level DTO constraint alongside the other validation, but the
         // request names an account rather than a currency, so the check needs the account fetched
         // first. Until then the application layer asks this before building an amount.
-        fun fits(amount: BigDecimal, currency: Currency) = amount.scale() <= currency.fractionDigits
-
-        private val Currency.fractionDigits: Int get() = defaultFractionDigits.coerceAtLeast(0)
+        fun fits(amount: BigDecimal, currency: Currency) =
+            amount.stripTrailingZeros().scale() <= currency.fractionDigits
     }
 }
+
+private val Currency.fractionDigits: Int get() = defaultFractionDigits.coerceAtLeast(0)
 
 fun interface IdGenerator {
     fun nextId(clock: Clock): Uuid
