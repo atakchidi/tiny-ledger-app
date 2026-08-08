@@ -3,23 +3,26 @@ package altak.ledger.domain.account
 import altak.ledger.NOW
 import altak.ledger.domain.Money
 import altak.ledger.domain.journal.Direction
-import altak.ledger.domain.journal.EntryLine
+import altak.ledger.domain.journal.MovementType
 import altak.ledger.accountFactory
 import altak.ledger.fixedClock
 import java.util.Currency
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 
 class AccountTest {
 
     private val eur = Currency.getInstance("EUR")
-    private val usd = Currency.getInstance("USD")
     private val clock = fixedClock()
     private val factory = accountFactory(clock)
 
+    private val chart = ChartOfAccounts { role, currency -> factory.internal(role, currency) }
+
     private val alice = factory.forHolder("Alice", eur, AccountReference("ACC-Alice".uppercase()))
     private val cash = factory.internal(AccountRole.CASH, eur)
+
+    private fun Account.moving(movement: MovementType, minorUnits: Long, currency: Currency = eur) =
+        move(movement, Money(minorUnits, currency), chart, clock)
 
     @Test
     fun `takes its creation time and a version 7 id from the clock`() {
@@ -42,14 +45,6 @@ class AccountTest {
     }
 
     @Test
-    fun `refuses a reference nothing could quote back`() {
-        assertFailsWith<AccountReference.Malformed> { AccountReference("no") }
-        assertFailsWith<AccountReference.Malformed> { AccountReference("-leading-dash") }
-        assertFailsWith<AccountReference.Malformed> { AccountReference("with spaces") }
-        assertFailsWith<AccountReference.Malformed> { AccountReference("a".repeat(33)) }
-    }
-
-    @Test
     fun `has not been touched since it was opened`() {
         assertEquals(alice.createdAt, alice.updatedAt)
     }
@@ -57,32 +52,37 @@ class AccountTest {
 
     @Test
     fun `grows on its own normal side and shrinks on the other`() {
-        assertEquals(Direction.CREDIT, alice.sideFor(Effect.INCREASE))
-        assertEquals(Direction.DEBIT, alice.sideFor(Effect.DECREASE))
-        assertEquals(Direction.DEBIT, cash.sideFor(Effect.INCREASE))
-        assertEquals(Direction.CREDIT, cash.sideFor(Effect.DECREASE))
+        assertEquals(Direction.CREDIT, alice.moving(MovementType.DEPOSIT, 1000).lines.first().direction)
+        assertEquals(Direction.DEBIT, alice.moving(MovementType.WITHDRAWAL, 1000).lines.first().direction)
+        assertEquals(Direction.DEBIT, cash.moving(MovementType.DEPOSIT, 1000).lines.first().direction)
+        assertEquals(Direction.CREDIT, cash.moving(MovementType.WITHDRAWAL, 1000).lines.first().direction)
     }
 
     @Test
-    fun `draws a line on the side it is asked for`() {
-        val line = alice.line(alice.sideFor(Effect.INCREASE), Money(1000, eur))
+    fun `settles a movement against the account the role it names stands for`() {
+        val deposit = alice.moving(MovementType.DEPOSIT, 1000)
 
-        assertEquals(alice.id, line.accountId)
-        assertEquals(Direction.CREDIT, line.direction)
-        assertEquals(Money(1000, eur), line.amount)
-    }
-
-
-
-
-    @Test
-    fun `refuses an amount in another currency`() {
-        assertFailsWith<Account.CurrencyMismatch> { alice.line(Direction.CREDIT, Money(100, usd)) }
+        assertEquals(listOf("ACC-ALICE", "CASH-EUR"), deposit.accounts.map { it.reference.toString() })
+        assertEquals(deposit.accounts.map { it.id }, deposit.lines.map { it.accountId })
+        assertEquals(listOf(Direction.CREDIT, Direction.DEBIT), deposit.lines.map { it.direction })
+        assertEquals(listOf(Money(1000, eur), Money(1000, eur)), deposit.lines.map { it.amount })
     }
 
     @Test
-    fun `refuses a non-positive amount`() {
-        assertFailsWith<EntryLine.NonPositiveAmount> { alice.line(Direction.CREDIT, Money(0, eur)) }
-        assertFailsWith<EntryLine.NonPositiveAmount> { alice.line(Direction.DEBIT, Money(-1, eur)) }
+    fun `carries each side onto the balance of the account it lands on`() {
+        val deposit = alice.moving(MovementType.DEPOSIT, 1000)
+
+        assertEquals(Money(1000, eur), deposit.accounts.first().balance)
+        assertEquals(Money(1000, eur), deposit.accounts.last().balance)
+        assertEquals(NOW, deposit.accounts.first().updatedAt)
     }
+
+    @Test
+    fun `takes each balance from the account it belongs to, not from the other side`() {
+        val withdrawal = alice.copy(balance = Money(1000, eur)).moving(MovementType.WITHDRAWAL, 400)
+
+        assertEquals(Money(600, eur), withdrawal.accounts.first().balance)
+        assertEquals(Money(-400, eur), withdrawal.accounts.last().balance)
+    }
+
 }

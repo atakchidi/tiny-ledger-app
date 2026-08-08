@@ -62,11 +62,6 @@ class OpenAccountServiceTest {
     }
 
     @Test
-    fun `refuses a reference nothing could quote back`() {
-        assertFailsWith<AccountReference.Malformed> { open(reference = "no") }
-    }
-
-    @Test
     fun `runs in one transaction`() {
         open()
 

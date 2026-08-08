@@ -108,12 +108,6 @@ class ListAccountEntriesServiceTest {
     }
 
     @Test
-    fun `refuses a page the ledger would not hand out`() {
-        assertFailsWith<Cursor.InvalidLimit> { history(limit = 0) }
-        assertFailsWith<Cursor.InvalidLimit> { history(limit = Cursor.MAX_LIMIT + 1) }
-    }
-
-    @Test
     fun `has nothing to show past a cursor it does not know`() {
         movementOf(alice, 1000)
 

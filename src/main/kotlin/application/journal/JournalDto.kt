@@ -9,9 +9,11 @@ import io.ktor.openapi.JsonSchema
 import altak.ledger.domain.journal.MovementType
 import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.Digits
+import jakarta.validation.constraints.PastOrPresent
 import jakarta.validation.constraints.Size
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
+import org.hibernate.validator.constraints.Length
 import java.math.BigDecimal
 import java.util.Currency
 import kotlin.time.Instant
@@ -21,6 +23,7 @@ import kotlin.uuid.Uuid
 data class RecordAccountEntryDto(
     @JsonSchema.Description("The id of the account to move, or the reference it is known by outside")
     @JsonSchema.Example("ACC-000123")
+    @field:Length(min=3, max = 36)
     val account: String,
 
     @JsonSchema.Description("Which way the money goes: a DEPOSIT pays in, a WITHDRAWAL takes out")
@@ -45,6 +48,7 @@ data class RecordAccountEntryDto(
             "It may be backdated but not dated ahead of today.",
     )
     @JsonSchema.Example("2026-06-01")
+    @field:PastOrPresent
     val occurredOn: LocalDate? = null,
 )
 
@@ -52,6 +56,7 @@ data class RecordAccountEntryDto(
 data class EntryQueryDto(
     @JsonSchema.Description("The id of an account, or the reference it is known by outside")
     @JsonSchema.Example("ACC-000123")
+    @field:Length(min=3, max = 36)
     val account: String,
 )
 
@@ -111,6 +116,7 @@ data class ViewEntryLineDto(
 data class BalanceQueryDto(
     @JsonSchema.Description("An account id or the reference it is known by outside; every account if left out")
     @JsonSchema.Example("ACC-000123")
+    @field:Length(min=3, max = 36)
     val account: String? = null,
 
     @Serializable(with = LocalDateSerializer::class)

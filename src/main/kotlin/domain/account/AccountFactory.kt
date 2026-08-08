@@ -8,7 +8,7 @@ class AccountFactory(
     private val ids: IdGenerator,
     private val clock: Clock,
 ) {
-    fun forHolder(name: String, currency: Currency, reference: AccountReference): Account =
+    fun forHolder(name: String, currency: Currency, reference: AccountReference) =
         Account(
             id = nextId(),
             reference = reference,
@@ -18,7 +18,7 @@ class AccountFactory(
             createdAt = clock.now(),
         )
 
-    fun internal(role: AccountRole, currency: Currency): Account =
+    fun internal(role: AccountRole, currency: Currency) =
         Account(
             id = nextId(),
             reference = role.referenceFor(currency),

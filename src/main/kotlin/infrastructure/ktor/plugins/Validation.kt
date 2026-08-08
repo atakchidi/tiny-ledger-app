@@ -16,8 +16,7 @@ fun Application.configureValidation() {
     monitor.subscribe(ApplicationStopped) { validatorFactory.close() }
 
     install(RequestValidation) {
-        // Matches every received body, so any DTO carrying Jakarta constraints is checked
-        // without registering it here.
+        // Matches every received body, so a DTO carrying Jakarta constraints needs no registering here.
         validate<Any> { body ->
             val violations = validator.validate(body)
 

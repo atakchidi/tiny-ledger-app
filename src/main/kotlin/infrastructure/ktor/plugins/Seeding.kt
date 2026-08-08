@@ -15,34 +15,34 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-private const val SEED_FILE = "seed.json"
-
 @Serializable
 private data class SeedData(
     val accounts: List<OpenAccountDto>,
     val entries: List<RecordAccountEntryDto>,
 )
 
-fun Application.configureSeeding(port: Int) {
-    val ledger = "http://localhost:$port"
+// A running server fills itself through its own API; a test declares no seed file and starts empty.
+fun Application.configureSeeding() {
+    val seedFile = environment.config.propertyOrNull("ledger.seed")?.getString() ?: return
+    val ledger = "http://localhost:${environment.config.property("ktor.deployment.port").getString()}"
 
     monitor.subscribe(ServerReady) {
         launch {
-            val seed = Json.decodeFromString<SeedData>(readSeedFile())
+            val seed = Json.decodeFromString<SeedData>(readSeedFile(seedFile))
 
             HttpClient(CIO).use { client ->
                 seed.accounts.forEach { client.send("$ledger/accounts", it) }
                 seed.entries.forEach { client.send("$ledger/journal/entries", it) }
             }
 
-            log.info("Seeded ${seed.accounts.size} accounts and ${seed.entries.size} entries from $SEED_FILE")
+            log.info("Seeded ${seed.accounts.size} accounts and ${seed.entries.size} entries from $seedFile")
         }
     }
 }
 
-private fun readSeedFile(): String {
-    val stream = object {}.javaClass.classLoader.getResourceAsStream(SEED_FILE)
-        ?: error("No seed file named \"$SEED_FILE\" on the classpath")
+private fun readSeedFile(name: String): String {
+    val stream = object {}.javaClass.classLoader.getResourceAsStream(name)
+        ?: error("No seed file named \"$name\" on the classpath")
 
     return stream.use { it.readBytes().decodeToString() }
 }

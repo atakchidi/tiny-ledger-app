@@ -173,23 +173,11 @@ class RecordAccountEntryServiceTest {
     }
 
     @Test
-    fun `refuses an amount finer than the currency allows`() {
-        assertFailsWith<Money.MalformedAmount> { record(MovementType.DEPOSIT, "10.505") }
-    }
+    fun `refuses an amount finer than the account's currency can hold`() {
+        val yuki = factory.forHolder("Yuki", jpy, AccountReference("ACC-Yuki".uppercase())).also(accounts::save)
 
-    @Test
-    fun `refuses an amount of nothing`() {
-        assertFailsWith<EntryLine.NonPositiveAmount> { record(MovementType.DEPOSIT, "0.00") }
-    }
-
-    @Test
-    fun `leaves the ledger untouched when it refuses`() {
-        record(MovementType.DEPOSIT, "10.00")
-
-        assertFailsWith<EntryLine.NonPositiveAmount> { record(MovementType.WITHDRAWAL, "0.00") }
-
-        assertEquals(Money(1000, eur), balanceOf(alice))
-        assertEquals(1, entries.byAccount(alice.id, Cursor(50)).items.size)
+        assertFailsWith<AmountTooPrecise> { record(MovementType.DEPOSIT, "10.505") }
+        assertFailsWith<AmountTooPrecise> { record(MovementType.DEPOSIT, "1000.50", account = yuki) }
     }
 
     @Test

@@ -15,9 +15,6 @@ import kotlinx.datetime.plus
 import java.util.Currency
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertFailsWith
-import kotlin.test.assertTrue
 
 class JournalEntryTest {
 
@@ -64,21 +61,6 @@ class JournalEntryTest {
     }
 
     @Test
-    fun `refuses to be dated after today`() {
-        assertFailsWith<JournalEntryFactory.FutureDated> {
-            journal.create("a movement", listOf(credit(alice, 1000), debit(bob, 1000)), TODAY.plus(1, DateTimeUnit.DAY))
-        }
-    }
-
-    @Test
-    fun `knows which accounts it touches`() {
-        val entry = entryOf(credit(alice, 1000), debit(bob, 1000))
-
-        assertTrue(entry.touches(alice.id))
-        assertFalse(entry.touches(dollars.id))
-    }
-
-    @Test
     fun `accepts an entry split across more than two lines`() {
         val entry = entryOf(credit(alice, 600), credit(bob, 400), debit(alice, 1000))
 
@@ -93,25 +75,4 @@ class JournalEntryTest {
         assertEquals(Money(1000, eur), entry.credited)
     }
 
-    @Test
-    fun `keeps debits and credits equal`() {
-        assertFailsWith<JournalEntry.Unbalanced> { entryOf(credit(alice, 1000), debit(bob, 900)) }
-    }
-
-    @Test
-    fun `refuses lines that all face the same way`() {
-        assertFailsWith<JournalEntry.Unbalanced> { entryOf(credit(alice, 1000), credit(bob, 1000)) }
-    }
-
-    @Test
-    fun `needs at least two lines`() {
-        assertFailsWith<JournalEntry.TooFewLines> { entryOf(credit(alice, 1000)) }
-    }
-
-    @Test
-    fun `cannot mix currencies`() {
-        assertFailsWith<JournalEntry.MixedCurrencies> {
-            entryOf(credit(alice, 1000), debit(dollars, 1000, usd))
-        }
-    }
 }

@@ -2,8 +2,8 @@ package altak.ledger.application.journal.service
 
 import altak.ledger.application.account.AccountNotFound
 import altak.ledger.application.account.byIdOrReference
+import altak.ledger.application.journal.AmountTooPrecise
 import altak.ledger.application.journal.RecordAccountEntryDto
-import altak.ledger.application.journal.ViewEntryDto
 import altak.ledger.application.journal.toViewDto
 import altak.ledger.domain.Money
 import altak.ledger.domain.TransactionManager
@@ -18,7 +18,13 @@ private val RecordAccountEntry.account get() = movement.account
 private val RecordAccountEntry.type get() = movement.type
 private val RecordAccountEntry.description get() = movement.description
 private val RecordAccountEntry.occurredOn get() = movement.occurredOn
-private fun RecordAccountEntry.amountIn(currency: Currency) = Money.of(movement.amount, currency)
+// The DTO cannot check this: how fine an amount may be depends on the account, which the request
+// names rather than carries.
+private fun RecordAccountEntry.amountIn(currency: Currency): Money {
+    if (!Money.fits(movement.amount, currency)) throw AmountTooPrecise(movement.amount, currency)
+
+    return Money.of(movement.amount, currency)
+}
 
 class RecordAccountEntryService(
     private val accounts: AccountRepository,
@@ -26,7 +32,7 @@ class RecordAccountEntryService(
     private val store: PostingStore,
     private val transactions: TransactionManager,
 ) {
-    fun execute(command: RecordAccountEntry): ViewEntryDto = transactions {
+    fun execute(command: RecordAccountEntry) = transactions {
         with(command) {
             val holder = accounts.byIdOrReference(account) ?: throw AccountNotFound(account)
             val posting = postings.create(holder, type, amountIn(holder.currency), description, occurredOn)

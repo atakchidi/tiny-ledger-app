@@ -23,7 +23,7 @@ data class CursorDto(
     @JsonSchema.Description("Which way to order them")
     val direction: Sorting.Direction = Sorting.Direction.ASC,
 ) {
-    fun <ID> toDomain(id: (Uuid) -> ID): Cursor<ID> =
+    fun <ID> toDomain(id: (Uuid) -> ID) =
         Cursor(limit, after?.let(id), Sorting(sort ?: Sorting.ID, direction))
 
     companion object {

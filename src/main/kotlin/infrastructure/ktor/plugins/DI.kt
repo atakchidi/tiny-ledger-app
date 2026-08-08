@@ -21,12 +21,12 @@ import altak.ledger.domain.journal.BalancesCalculator
 import altak.ledger.domain.journal.PostingFactory
 import altak.ledger.domain.journal.PostingStore
 import altak.ledger.infrastructure.UuidV7Generator
+import altak.ledger.infrastructure.validation.validatorFactory
 import altak.ledger.infrastructure.persistence.InMemoryAccountRepository
 import altak.ledger.infrastructure.persistence.InMemoryJournalEntryRepository
 import altak.ledger.infrastructure.persistence.RepositoryChartOfAccounts
 import altak.ledger.infrastructure.persistence.RepositoryPostingStore
 import altak.ledger.infrastructure.persistence.InMemoryTransactionManager
-import jakarta.validation.Validation
 import jakarta.validation.Validator
 import jakarta.validation.ValidatorFactory
 import io.ktor.server.application.*
@@ -40,7 +40,7 @@ fun Application.configureDependencyInjection() {
         provide<TimeZone> { TimeZone.currentSystemDefault() }
         provide(::LedgerCalendar)
         provide<IdGenerator>(::UuidV7Generator)
-        provide<ValidatorFactory> { Validation.buildDefaultValidatorFactory() }
+        provide<ValidatorFactory> { validatorFactory(resolve<Clock>(), resolve<TimeZone>()) }
         provide<Validator> { resolve<ValidatorFactory>().validator }
         provide<AccountRepository> { InMemoryAccountRepository() }
         provide<JournalEntryRepository> { InMemoryJournalEntryRepository() }

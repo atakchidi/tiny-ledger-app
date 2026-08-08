@@ -6,7 +6,7 @@ import altak.ledger.domain.account.AccountReference
 
 data class Posting(val entry: JournalEntry, val accounts: List<Account>) {
 
-    fun referenceOf(id: AccountId): AccountReference = accounts.first { it.id == id }.reference
+    fun referenceOf(id: AccountId) = accounts.first { it.id == id }.reference
 }
 
 interface PostingStore {

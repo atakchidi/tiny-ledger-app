@@ -1,7 +1,6 @@
 package altak.ledger.infrastructure.persistence
 
 import altak.ledger.domain.Cursor
-import altak.ledger.domain.Page
 import altak.ledger.domain.account.Account
 import altak.ledger.domain.account.AccountId
 import altak.ledger.domain.account.AccountReference
@@ -16,11 +15,11 @@ class InMemoryAccountRepository : AccountRepository {
         accountsById[account.id] = account
     }
 
-    override fun byId(id: AccountId): Account? = accountsById[id]
+    override fun byId(id: AccountId) = accountsById[id]
 
-    override fun byReference(reference: AccountReference): Account? =
+    override fun byReference(reference: AccountReference) =
         accountsById.values.find { it.reference == reference }
 
-    override fun all(cursor: Cursor<AccountId>): Page<Account> =
+    override fun all(cursor: Cursor<AccountId>) =
         accountsById.values.toList().pageFrom(cursor)
 }

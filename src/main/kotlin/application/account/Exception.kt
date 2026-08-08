@@ -1,7 +1,9 @@
 package altak.ledger.application.account
 
-import altak.ledger.domain.LedgerException
+import altak.ledger.application.shared.StatusCode
 
-class AccountNotFound(id: String) : LedgerException("Account by id '$id' not found.")
+@StatusCode(404)
+class AccountNotFound(id: String) : RuntimeException("Account by id '$id' not found.")
 
-class AccountAlreadyOpen(reference: String) : LedgerException("Account by reference '$reference' is already open.")
+@StatusCode(409)
+class AccountAlreadyOpen(reference: String) : RuntimeException("Account by reference '$reference' is already open.")

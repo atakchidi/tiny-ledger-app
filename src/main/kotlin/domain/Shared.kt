@@ -9,8 +9,6 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
-abstract class LedgerException(message: String) : RuntimeException(message)
-
 interface AggregateRoot<ID> {
 
     val id: ID
@@ -22,22 +20,17 @@ interface AggregateRoot<ID> {
 
 data class Money(val minorUnits: Long, val currency: Currency) {
 
-    class CurrencyMismatch(message: String) : LedgerException(message)
-
-    class MalformedAmount(message: String) : LedgerException(message)
-
     val isPositive: Boolean get() = minorUnits > 0
 
     operator fun plus(other: Money): Money {
-        if (currency != other.currency) {
-            throw CurrencyMismatch(
-                "Cannot combine ${currency.currencyCode} and ${other.currency.currencyCode} amounts",
-            )
+        require(currency == other.currency) {
+            "Cannot combine ${currency.currencyCode} and ${other.currency.currencyCode} amounts"
         }
+
         return copy(minorUnits = Math.addExact(minorUnits, other.minorUnits))
     }
 
-    operator fun unaryMinus(): Money = copy(minorUnits = -minorUnits)
+    operator fun unaryMinus() = copy(minorUnits = -minorUnits)
 
     fun toDecimal(): BigDecimal = BigDecimal.valueOf(minorUnits, currency.fractionDigits)
 
@@ -46,15 +39,13 @@ data class Money(val minorUnits: Long, val currency: Currency) {
     companion object {
         fun zero(currency: Currency) = Money(0, currency)
 
-        fun of(amount: BigDecimal, currency: Currency): Money =
-            try {
-                Money(amount.setScale(currency.fractionDigits).unscaledValue().longValueExact(), currency)
-            } catch (tooPrecise: ArithmeticException) {
-                throw MalformedAmount(
-                    "$amount cannot be held in ${currency.currencyCode}, " +
-                        "which has ${currency.fractionDigits} decimal places",
-                )
-            }
+        fun of(amount: BigDecimal, currency: Currency) =
+            Money(amount.setScale(currency.fractionDigits).unscaledValue().longValueExact(), currency)
+
+        // TODO: belongs in a class-level DTO constraint alongside the other validation, but the
+        // request names an account rather than a currency, so the check needs the account fetched
+        // first. Until then the application layer asks this before building an amount.
+        fun fits(amount: BigDecimal, currency: Currency) = amount.scale() <= currency.fractionDigits
 
         private val Currency.fractionDigits: Int get() = defaultFractionDigits.coerceAtLeast(0)
     }
@@ -68,5 +59,5 @@ fun interface IdGenerator {
 // keep one calendar for that: an accounting day is the same day for every caller, wherever they are.
 class LedgerCalendar(private val clock: Clock, private val zone: TimeZone) {
 
-    fun today(): LocalDate = clock.now().toLocalDateTime(zone).date
+    fun today() = clock.now().toLocalDateTime(zone).date
 }

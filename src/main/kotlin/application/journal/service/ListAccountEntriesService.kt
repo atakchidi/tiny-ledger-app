@@ -3,8 +3,6 @@ package altak.ledger.application.journal.service
 import altak.ledger.application.account.AccountNotFound
 import altak.ledger.application.account.byIdOrReference
 import altak.ledger.application.journal.EntryQueryDto
-import altak.ledger.application.journal.ViewEntryDto
-import altak.ledger.domain.Page
 import altak.ledger.application.journal.References
 import altak.ledger.application.journal.toViewDto
 import altak.ledger.application.shared.CursorDto
@@ -19,7 +17,7 @@ data class ListAccountEntries(val query: EntryQueryDto, val cursor: CursorDto)
 private val ListAccountEntries.page get() = cursor.toDomain(::EntryId)
 
 // One lookup per account the page touches, rather than one per line; a database would read them in
-// a single query instead.
+// a single query.
 private fun AccountRepository.referencesOn(entries: List<JournalEntry>): References {
     val references = entries.flatMap { it.lines }
         .map { it.accountId }
@@ -35,7 +33,7 @@ class ListAccountEntriesService(
     private val transaction: TransactionManager,
 ) {
 
-    fun execute(command: ListAccountEntries): Page<ViewEntryDto> = transaction {
+    fun execute(command: ListAccountEntries) = transaction {
         with(command) {
             val holder = accounts.byIdOrReference(query.account) ?: throw AccountNotFound(query.account)
 

@@ -51,7 +51,6 @@ fun Application.configureHttp() {
             call.respondRedirect("/swagger")
         }.hide()
 
-        // hide() keeps the spec endpoint itself out of the spec.
         get("/openapi.json") {
             call.respondText(
                 text = openApiSource.read(call.application, openApiBaseDoc).content,

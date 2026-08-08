@@ -1,7 +1,6 @@
 package altak.ledger.infrastructure.persistence
 
 import altak.ledger.domain.Cursor
-import altak.ledger.domain.Page
 import altak.ledger.domain.account.AccountId
 import altak.ledger.domain.journal.EntryId
 import altak.ledger.domain.journal.EntryLine
@@ -24,11 +23,11 @@ class InMemoryJournalEntryRepository : JournalEntryRepository {
             }
     }
 
-    override fun linesOf(id: AccountId, until: LocalDate): List<EntryLine> =
+    override fun linesOf(id: AccountId, until: LocalDate) =
         entriesByAccount[id].orEmpty()
             .filter { it.occurredOn <= until }
             .flatMap { entry -> entry.lines.filter { it.accountId == id } }
 
-    override fun byAccount(id: AccountId, cursor: Cursor<EntryId>): Page<JournalEntry> =
+    override fun byAccount(id: AccountId, cursor: Cursor<EntryId>) =
         entriesByAccount[id].orEmpty().pageFrom(cursor)
 }

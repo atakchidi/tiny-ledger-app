@@ -8,16 +8,16 @@ import altak.ledger.domain.account.AccountRepository
 fun AccountRepository.byIdOrReference(raw: String): Account? =
     raw.toAccountIdOrNull()?.let(::byId) ?: raw.toReferenceOrNull()?.let(::byReference)
 
-private fun String.toAccountIdOrNull(): AccountId? =
+private fun String.toAccountIdOrNull() =
     try {
         AccountId(this)
     } catch (notAnId: IllegalArgumentException) {
         null
     }
 
-private fun String.toReferenceOrNull(): AccountReference? =
+private fun String.toReferenceOrNull() =
     try {
         AccountReference(this)
-    } catch (notAReference: AccountReference.Malformed) {
+    } catch (notAReference: IllegalArgumentException) {
         null
     }

@@ -1,6 +1,5 @@
 package altak.ledger.api.rest
 
-import altak.ledger.infrastructure.ktor.rootModule
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -9,8 +8,6 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
-import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
@@ -19,8 +16,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class AccountApiTest {
-
-    private fun ApplicationTestBuilder.startServer() = application { rootModule() }
 
     private suspend fun HttpClient.openAccount(
         name: String = "Alice",
@@ -32,9 +27,7 @@ class AccountApiTest {
     }
 
     @Test
-    fun `opens an account`() = testApplication {
-        startServer()
-
+    fun `opens an account`() = apiTest {
         val response = client.openAccount()
 
         assertEquals(HttpStatusCode.Created, response.status)
@@ -48,8 +41,7 @@ class AccountApiTest {
     }
 
     @Test
-    fun `orders the accounts by the reference they are known by`() = testApplication {
-        startServer()
+    fun `orders the accounts by the reference they are known by`() = apiTest {
         client.openAccount(name = "Chloe", reference = "ACC-003")
         client.openAccount(name = "Alice", reference = "ACC-001")
 
@@ -62,9 +54,7 @@ class AccountApiTest {
     }
 
     @Test
-    fun `refuses to order the accounts by a field it does not offer`() = testApplication {
-        startServer()
-
+    fun `refuses to order the accounts by a field it does not offer`() = apiTest {
         val response = client.get("/accounts?sort=name")
 
         assertEquals(HttpStatusCode.BadRequest, response.status)
@@ -72,9 +62,7 @@ class AccountApiTest {
     }
 
     @Test
-    fun `rejects a request that breaks a validation rule`() = testApplication {
-        startServer()
-
+    fun `rejects a request that breaks a validation rule`() = apiTest {
         val response = client.post("/accounts") {
             contentType(ContentType.Application.Json)
             setBody("""{"name":"","currency":"EUR","reference":"ACC-ALICE"}""")
@@ -85,9 +73,7 @@ class AccountApiTest {
     }
 
     @Test
-    fun `rejects a reference that is not in canonical form`() = testApplication {
-        startServer()
-
+    fun `rejects a reference that is not in canonical form`() = apiTest {
         val response = client.openAccount(reference = "acc-alice")
 
         assertEquals(HttpStatusCode.BadRequest, response.status)
@@ -95,9 +81,7 @@ class AccountApiTest {
     }
 
     @Test
-    fun `rejects a currency that is not in the ISO register`() = testApplication {
-        startServer()
-
+    fun `rejects a currency that is not in the ISO register`() = apiTest {
         val unknown = client.openAccount(currency = "XYZ")
         val lowercase = client.openAccount(currency = "eur")
 
@@ -108,9 +92,7 @@ class AccountApiTest {
     }
 
     @Test
-    fun `refuses to open a second account under the same reference`() = testApplication {
-        startServer()
-
+    fun `refuses to open a second account under the same reference`() = apiTest {
         client.openAccount()
         val second = client.openAccount(name = "Bob")
 
@@ -119,8 +101,7 @@ class AccountApiTest {
     }
 
     @Test
-    fun `views an account by id and by reference`() = testApplication {
-        startServer()
+    fun `views an account by id and by reference`() = apiTest {
         val id = client.openAccount().id()
 
         val byId = client.get("/accounts/$id")
@@ -133,8 +114,7 @@ class AccountApiTest {
     }
 
     @Test
-    fun `lists the accounts on the books, a page at a time`() = testApplication {
-        startServer()
+    fun `lists the accounts on the books, a page at a time`() = apiTest {
         client.openAccount()
         client.openAccount(name = "Bob", reference = "ACC-BOB")
 
@@ -151,9 +131,7 @@ class AccountApiTest {
     }
 
     @Test
-    fun `has nothing to show for an account it does not keep`() = testApplication {
-        startServer()
-
+    fun `has nothing to show for an account it does not keep`() = apiTest {
         val unknown = client.get("/accounts/019fffff-0000-7000-8000-000000000000")
         val malformed = client.get("/accounts/not-an-account")
 

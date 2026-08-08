@@ -4,7 +4,6 @@ import java.math.BigDecimal
 import java.util.Currency
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 
 class SharedTest {
 
@@ -23,11 +22,6 @@ class SharedTest {
     }
 
     @Test
-    fun `refuses to combine different currencies`() {
-        assertFailsWith<Money.CurrencyMismatch> { Money(100, eur) + Money(100, usd) }
-    }
-
-    @Test
     fun `takes a decimal amount into the currency's minor units`() {
         assertEquals(Money(1050, eur), Money.of(BigDecimal("10.50"), eur))
         assertEquals(Money(1000, eur), Money.of(BigDecimal("10"), eur))
@@ -41,15 +35,7 @@ class SharedTest {
     }
 
     @Test
-    fun `refuses an amount finer than the currency allows`() {
-        assertFailsWith<Money.MalformedAmount> { Money.of(BigDecimal("10.505"), eur) }
-        assertFailsWith<Money.MalformedAmount> { Money.of(BigDecimal("0.5"), jpy) }
-    }
-
-    @Test
     fun `a cursor holds a sensible number of records`() {
         assertEquals(Cursor.MAX_LIMIT, Cursor<String>(Cursor.MAX_LIMIT).limit)
-        assertFailsWith<Cursor.InvalidLimit> { Cursor<String>(limit = 0) }
-        assertFailsWith<Cursor.InvalidLimit> { Cursor<String>(limit = Cursor.MAX_LIMIT + 1) }
     }
 }

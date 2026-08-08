@@ -25,21 +25,17 @@ class PostingFactory(
         description: String? = null,
         occurredOn: LocalDate? = null,
     ): Posting {
-        val counterpart = chart.of(movement.counterpart, subject.currency)
-        val side = subject.sideFor(movement.effect)
+        val moved = subject.move(movement, amount, chart, clock)
 
         val entry = entries.create(
             description = description ?: movement.description,
-            lines = listOf(subject.line(side, amount), counterpart.line(side.opposite, amount)),
+            lines = moved.lines,
             occurredOn = occurredOn,
         )
 
         return Posting(
             entry = entry,
-            accounts = listOf(subject, counterpart).map { account ->
-                entry.lines.filter { it.accountId == account.id }
-                    .fold(account) { projected, line -> projected.project(line, clock) }
-            },
+            accounts = moved.accounts
         )
     }
 }

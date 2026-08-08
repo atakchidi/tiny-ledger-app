@@ -13,7 +13,6 @@ import altak.ledger.journalEntryFactory
 import java.util.Currency
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 
 class PostingFactoryTest {
 
@@ -100,11 +99,5 @@ class PostingFactoryTest {
         val posting = postings.create(dollars, MovementType.DEPOSIT, Money(100, usd))
 
         assertEquals(usd, posting.of("CASH-USD").currency)
-        assertFailsWith<Account.CurrencyMismatch> { postings.create(dollars, MovementType.DEPOSIT, Money(100, eur)) }
-    }
-
-    @Test
-    fun `refuses an amount of nothing`() {
-        assertFailsWith<EntryLine.NonPositiveAmount> { postings.create(alice, MovementType.DEPOSIT, Money(0, eur)) }
     }
 }

@@ -38,6 +38,18 @@ A movement names one **subject** account and an amount. Everything else is deriv
 > side, decrease the opposite. Post the counterpart on the **opposite** debit/credit side. Whether
 > the counterpart's own balance rises or falls follows from *its* type.
 
+Neither account is ever told which column to use. The subject is asked for the whole movement —
+`subject.move(movement, amount, chart, clock)` — and does the rest itself: it resolves the counterpart
+for the role the movement names, takes its own side from its own type, and hands the line to the
+counterpart, which takes the other side of it and checks the currency against itself. Both sides come
+back together as an `Account.Movement`, so no caller ever holds a loose debit/credit value that the
+two lines could be derived from separately.
+
+The counterpart account travels back with the lines rather than being resolved again by the caller:
+the chart *opens* an account the first time a role is used, so a second lookup would answer with a
+different, equally new one, and the lines would name an account other than the one whose balance was
+projected.
+
 | event | subject | effect | subject side | counterpart | counterpart side | counterpart effect |
 |---|---|---|---|---|---|---|
 | deposit | holder (LIABILITY) | increase | CREDIT | Cash (ASSET) | DEBIT | increase |
@@ -51,9 +63,9 @@ Three pieces carry it, so none of them has to branch per movement:
   type — `CASH` gives `CASH-EUR`, an `ASSET`. **`ChartOfAccounts`** resolves a role and currency to
   that account, opening it if it has never been used.
 - **`MovementType`** is the rule table above: a counterpart role and an effect on the subject.
-- **`PostingFactory`** applies the rule and returns a `Posting` — the journal entry plus the accounts
-  it touches. **`PostingStore`** writes all of it, which is also how an account first used as a
-  counterpart comes into existence.
+- **`PostingFactory`** turns the movement into a `Posting` — the journal entry plus the accounts it
+  touches, their balances already carried forward. **`PostingStore`** writes all of it, which is also
+  how an account first used as a counterpart comes into existence.
 
 Only `DEPOSIT` and `WITHDRAWAL` exist, because only those have endpoints. The last two rows are what
 extension looks like: one row in `AccountRole`, one in `MovementType`, and a use case that names it.
@@ -69,10 +81,18 @@ A ledger only ever adds and subtracts posted amounts, which is exactly where int
 the arithmetic is exact and there is no rounding policy to get wrong. This is what Stripe, Adyen and
 TigerBeetle do. `Money.plus` uses `Math.addExact`, so an overflow raises instead of wrapping.
 
-Decimals live at the edge: the API speaks `BigDecimal` (`10.50`, not `1050`), converted using the
-currency's own `defaultFractionDigits`, so JPY is whole units and EUR is cents. An amount finer than
-the currency allows — `10.505` in EUR — is **rejected**, not rounded, because a ledger should not
+Decimals live at the edge: a request carries `10.50`, not `1050`, converted using the currency's own
+`defaultFractionDigits`, so JPY is whole units and EUR is cents. An amount finer than the currency
+allows — `10.505` in EUR, `100.50` in JPY — is **rejected**, not rounded, because a ledger should not
 silently invent or lose a fraction.
+
+That is the one rule about an amount no annotation can carry, since how fine an amount may be depends
+on the account it lands on, and the account is not resolved until the service runs. `Money.fits` holds
+the rule and `RecordAccountEntryService` asks it before building an amount.
+
+Responses render amounts as **strings** (`"10.50"`), because a JSON number invites a consumer to parse
+it as a float, and `2400.00` read as a float and written back is `2400.0`. Requests still accept a
+number or a string.
 
 `BigDecimal` would be the better internal choice the day interest, FX rates or per-unit pricing
 arrive, since those produce sub-minor-unit intermediates. Nothing here does.
@@ -90,8 +110,7 @@ simplification:
 Backdating within an open period is ordinary accounting: an invoice arriving on the 5th for work done
 on the 28th is posted with last month's effective date. `POST /journal/entries` therefore accepts
 `occurredOn`, defaulting to today, and `?onDate=` on balances filters on it. Dating an entry **after**
-today is refused (`JournalEntryFactory.FutureDated`) — the common rule, and the one that keeps a
-balance "as of today" meaningful.
+today is refused — the common rule, and the one that keeps a balance "as of today" meaningful.
 
 The effective date is a `LocalDate`, not an `Instant`, because that is what it is: books are kept per
 accounting day, and no rule cares that a sale happened at 14:32. Modelling it as an instant also
@@ -100,10 +119,15 @@ what the question means. `Instant` stays where precision is real — the recordi
 
 Dates need a zone, and a `Clock` deliberately has none: it hands out instants, which have no calendar
 until something says where midnight falls. `LedgerCalendar(clock, zone)` is that something, and the
-only place in the app a date is derived from a moment. The zone is a single injected token
+only place a date is derived from a moment. The zone is a single injected token
 (`TimeZone.currentSystemDefault()`), so the books keep **one** calendar rather than one per caller —
-an accounting day is the same day for everyone. Deployment picks it: the image sets
-`TZ=Europe/Riga`.
+an accounting day is the same day for everyone. Deployment picks it: the image sets `TZ=Europe/Riga`.
+
+Validation keeps the same calendar. Hibernate dates `@PastOrPresent` from its own clock provider —
+the virtual machine's by default — and ships validators for the `java.time` types only, so
+`infrastructure/validation` gives it the injected clock and zone and teaches it `kotlinx.datetime.LocalDate`.
+Without that pairing a request could be refused as future-dated while the books had already turned the
+day, or accepted after they had not.
 
 ## What is not enforced
 
@@ -140,8 +164,8 @@ Three separate things, deliberately not conflated:
 | `reference` | the external natural key — `ACC-000123`, `CASH-EUR` — normalized to upper case, unique, quoted back by other systems |
 | `name` | a free-text display label, mutable, not unique |
 
-Every account-scoped route accepts either the id or the reference. Ids are validated to be v7 on
-construction, so a v4 UUID from elsewhere is rejected rather than silently looked up and missed.
+Every account-scoped route accepts either the id or the reference: whichever parses is looked up, and
+a string that is neither answers `404` rather than a parse failure.
 
 ## Reading
 
@@ -175,7 +199,7 @@ a moment and returns a `Balances` value object:
 
 ```kotlin
 entries.linesOf(id, until = onDate)
-    .fold(Money.zero(currency)) { running, line -> running + line.signedAgainst(type.normalSide) }
+    .fold(Money.zero(currency)) { running, line -> running + line.signedAgainst(type.direction) }
 ```
 
 `GET /journal/balances` always asks the journal, which is why `?onDate=…` falls out for free — a
@@ -197,7 +221,7 @@ accounts folds the journal. Fine at this size, wrong at millions of entries. The
 the journal authoritative and makes the projection load-bearing: roll balances up per account and
 period so a fold only ever covers the tail. That is an adapter and a job, not a change to the model.
 
-## Errors
+## Errors, and who is answering for them
 
 Every rejection answers with the same shape:
 
@@ -205,11 +229,34 @@ Every rejection answers with the same shape:
 {"errors": ["name: must not be blank"]}
 ```
 
-Exceptions live next to whatever raises them (`Money.MalformedAmount`, `JournalEntry.Unbalanced`,
-`Cursor.InvalidLimit`, `AccountReference.Malformed`) and share an abstract `LedgerException`, so
-`StatusPages` needs three handlers rather than a dozen: validation and any `LedgerException` are
-`400`, `AccountNotFound` is `404`, `AccountAlreadyOpen` is `409`.
+Two kinds of failure hide behind that shape, and the split is the point.
 
-Validation is split by who can judge it: Jakarta constraints on the DTOs for shape (`limit` at least
-1, name length, reference format), the domain for meaning (`limit` at most 200, debits equal
-credits, the currency can hold this amount).
+**A caller asked for something the ledger refuses.** That is an application exception, and it names
+its own answer:
+
+```kotlin
+@StatusCode(404) class AccountNotFound(id: String) : RuntimeException("Account by id '$id' not found.")
+```
+
+`StatusPages` reads the annotation, answers with that status, and trusts the exception's message — so
+a new refusal needs a class and a number, not another handler. The annotation takes an `Int` because
+Ktor's `HttpStatusCode` is a data class, and an annotation argument must be a compile-time constant.
+
+**An invariant broke.** Aggregates and value objects guard themselves with `require`, on the
+assumption that whatever built them had already been told what a valid one looks like — an entry
+whose debits do not equal its credits, a line posted to an account it does not belong to. Reaching
+one is a bug in this code, not a mistake by the caller, so it answers `500` and says nothing about
+the inside. None of them is reachable through the API; the DTOs see to that, and the tests do not
+assert them.
+
+Everything is logged with its stack trace either way.
+
+Validation is therefore split by who can judge it:
+
+| judged by | rules |
+|---|---|
+| Jakarta constraints on the DTOs | name length, reference format, positive amount, digits, page size, a date not after today |
+| `Sortable`, per route | the fields that route will order by |
+| the serializers | an unreadable uuid, date, decimal or currency code — `MalformedValue`, answered `400` |
+| the application services | what needs the ledger read first: an account that exists, a reference not already open, an amount the account's currency can hold |
+| `require` in the domain | invariants — unreachable from a request by construction |

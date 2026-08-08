@@ -1,26 +1,57 @@
 package altak.ledger.domain.journal
 
 import altak.ledger.domain.AggregateRoot
-import altak.ledger.domain.LedgerException
 import altak.ledger.domain.Money
 import altak.ledger.domain.account.AccountId
 import kotlinx.datetime.LocalDate
-import java.util.Currency
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
+data class JournalEntry(
+    override val id: EntryId,
+    val description: String,
+    val occurredOn: LocalDate,
+    override val createdAt: Instant,
+    val lines: List<EntryLine>,
+    override val updatedAt: Instant = createdAt,
+) : AggregateRoot<EntryId> {
+
+    val currency get() = lines.first().amount.currency
+
+    val debited: Money by lazy { totalFor(Direction.DEBIT) }
+
+    val credited: Money by lazy { totalFor(Direction.CREDIT) }
+
+    init {
+        require(lines.size >= 2) { "An entry needs at least two lines, but had ${lines.size}" }
+
+        val currencies = lines.map { it.amount.currency }.distinct()
+        require(currencies.size == 1) {
+            "All lines of an entry must share one currency, but found ${currencies.joinToString { it.currencyCode }}"
+        }
+
+        require(debited == credited) {
+            "Debits must equal credits, but debited ${debited.minorUnits} and credited ${credited.minorUnits}"
+        }
+    }
+
+    private fun totalFor(direction: Direction) =
+        lines
+            .filter { it.direction == direction }
+            .fold(Money.zero(lines.first().amount.currency)) { running, line -> running + line.amount }
+}
+
 enum class Direction {
-    DEBIT {
-        override val opposite get() = CREDIT
-    },
-    CREDIT {
-        override val opposite get() = DEBIT
-    },
-    ;
+    DEBIT,
+    CREDIT;
 
-    abstract val opposite: Direction
+    val opposite
+        get() = when (this) {
+            DEBIT -> CREDIT
+            CREDIT -> DEBIT
+        }
 
-    fun signOn(normalSide: Direction, amount: Money): Money = if (this == normalSide) amount else -amount
+    fun signOn(direction: Direction, amount: Money) = if (this == direction) amount else -amount
 }
 
 @JvmInline
@@ -33,62 +64,11 @@ data class EntryLine(
     val direction: Direction,
     val amount: Money,
 ) {
-    class NonPositiveAmount(message: String) : LedgerException(message)
-
     init {
-        if (!amount.isPositive) {
-            throw NonPositiveAmount("A line amount must be positive, but was ${amount.minorUnits}")
+        require(amount.isPositive) {
+            "A line amount must be positive, but was ${amount.minorUnits}"
         }
     }
 
-    fun signedAgainst(normalSide: Direction): Money = direction.signOn(normalSide, amount)
-}
-
-data class JournalEntry(
-    override val id: EntryId,
-    val description: String,
-    val occurredOn: LocalDate,
-    override val createdAt: Instant,
-    val lines: List<EntryLine>,
-    override val updatedAt: Instant = createdAt,
-) : AggregateRoot<EntryId> {
-
-    class TooFewLines(message: String) : LedgerException(message)
-
-    class MixedCurrencies(message: String) : LedgerException(message)
-
-    class Unbalanced(message: String) : LedgerException(message)
-
-    val currency: Currency get() = lines.first().amount.currency
-
-    val debited: Money by lazy { totalFor(Direction.DEBIT) }
-
-    val credited: Money by lazy { totalFor(Direction.CREDIT) }
-
-    init {
-        if (lines.size < 2) {
-            throw TooFewLines("An entry needs at least two lines, but had ${lines.size}")
-        }
-
-        val currencies = lines.map { it.amount.currency }.distinct()
-        if (currencies.size > 1) {
-            throw MixedCurrencies(
-                "All lines of an entry must share one currency, but found " +
-                    currencies.joinToString { it.currencyCode },
-            )
-        }
-
-        if (debited != credited) {
-            throw Unbalanced(
-                "Debits must equal credits, but debited ${debited.minorUnits} and credited ${credited.minorUnits}",
-            )
-        }
-    }
-
-    fun touches(accountId: AccountId): Boolean = lines.any { it.accountId == accountId }
-
-    private fun totalFor(direction: Direction): Money =
-        lines
-            .filter { it.direction == direction }
-            .fold(Money.zero(lines.first().amount.currency)) { running, line -> running + line.amount }
+    fun signedAgainst(normalSide: Direction) = direction.signOn(normalSide, amount)
 }

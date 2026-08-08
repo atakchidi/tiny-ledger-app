@@ -3,7 +3,7 @@ package altak.ledger.application.account
 import altak.ledger.domain.account.Account
 import altak.ledger.domain.account.AccountId
 
-fun String.toAccountId(): AccountId =
+fun String.toAccountId() =
     try {
         AccountId(this)
     } catch (notAnId: IllegalArgumentException) {

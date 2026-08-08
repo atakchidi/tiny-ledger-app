@@ -1,6 +1,5 @@
 package altak.ledger.api.rest
 
-import altak.ledger.infrastructure.ktor.rootModule
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -10,8 +9,6 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
-import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -21,8 +18,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class JournalApiTest {
-
-    private fun ApplicationTestBuilder.startServer() = application { rootModule() }
 
     private suspend fun HttpClient.openAccount(reference: String = "ACC-ALICE") =
         post("/accounts") {
@@ -63,8 +58,7 @@ class JournalApiTest {
             .content
 
     @Test
-    fun `records a deposit as a balanced entry`() = testApplication {
-        startServer()
+    fun `records a deposit as a balanced entry`() = apiTest {
         val alice = client.openAccount().id()
 
         val response = client.record(amount = "10.50")
@@ -82,8 +76,7 @@ class JournalApiTest {
     }
 
     @Test
-    fun `a deposit then a withdrawal leave the balance in between`() = testApplication {
-        startServer()
+    fun `a deposit then a withdrawal leave the balance in between`() = apiTest {
         client.openAccount()
 
         client.record(amount = "10.50")
@@ -93,8 +86,7 @@ class JournalApiTest {
     }
 
     @Test
-    fun `lets a holder overdraw`() = testApplication {
-        startServer()
+    fun `lets a holder overdraw`() = apiTest {
         client.openAccount()
 
         client.record(type = "WITHDRAWAL", amount = "2.50")
@@ -103,8 +95,7 @@ class JournalApiTest {
     }
 
     @Test
-    fun `keeps the cash the ledger holds equal to what it owes`() = testApplication {
-        startServer()
+    fun `keeps the cash the ledger holds equal to what it owes`() = apiTest {
         client.openAccount()
         client.openAccount(reference = "ACC-BOB")
 
@@ -123,8 +114,7 @@ class JournalApiTest {
     }
 
     @Test
-    fun `takes an entry dated back to the day it happened`() = testApplication {
-        startServer()
+    fun `takes an entry dated back to the day it happened`() = apiTest {
         client.openAccount()
 
         val entry = client.record(amount = "10.00", occurredOn = "2026-01-31")
@@ -136,19 +126,17 @@ class JournalApiTest {
     }
 
     @Test
-    fun `refuses an entry dated after today`() = testApplication {
-        startServer()
+    fun `refuses an entry dated after today`() = apiTest {
         client.openAccount()
 
         val entry = client.record(amount = "10.00", occurredOn = "2099-12-31")
 
         assertEquals(HttpStatusCode.BadRequest, entry.status)
-        assertContains(entry.bodyAsText(), "after today")
+        assertContains(entry.bodyAsText(), "occurredOn: must be a date in the past or in the present")
     }
 
     @Test
-    fun `names the account each side of an entry lands on`() = testApplication {
-        startServer()
+    fun `names the account each side of an entry lands on`() = apiTest {
         client.openAccount()
         client.record(amount = "10.00")
 
@@ -162,8 +150,7 @@ class JournalApiTest {
     }
 
     @Test
-    fun `orders the entries by the day they happened when asked`() = testApplication {
-        startServer()
+    fun `orders the entries by the day they happened when asked`() = apiTest {
         client.openAccount()
         val january = client.record(amount = "10.00", occurredOn = "2026-01-31").id()
         val march = client.record(amount = "4.00", occurredOn = "2026-03-15").id()
@@ -177,8 +164,7 @@ class JournalApiTest {
     }
 
     @Test
-    fun `refuses to order the entries by a field it does not offer`() = testApplication {
-        startServer()
+    fun `refuses to order the entries by a field it does not offer`() = apiTest {
         client.openAccount()
 
         val response = client.entriesOf(query = "&sort=description")
@@ -188,8 +174,7 @@ class JournalApiTest {
     }
 
     @Test
-    fun `shows the entries of an account`() = testApplication {
-        startServer()
+    fun `shows the entries of an account`() = apiTest {
         client.openAccount()
         val deposit = client.record(amount = "10.00").id()
         val withdrawal = client.record(type = "WITHDRAWAL", amount = "4.00").id()
@@ -204,8 +189,7 @@ class JournalApiTest {
     }
 
     @Test
-    fun `walks the entries a page at a time`() = testApplication {
-        startServer()
+    fun `walks the entries a page at a time`() = apiTest {
         client.openAccount()
         val movements = (1..3).map { client.record(amount = "$it.00").id() }
 
@@ -219,8 +203,7 @@ class JournalApiTest {
     }
 
     @Test
-    fun `reads the journal as it stood on a date`() = testApplication {
-        startServer()
+    fun `reads the journal as it stood on a date`() = apiTest {
         client.openAccount()
         client.record(amount = "10.00")
 
@@ -233,8 +216,7 @@ class JournalApiTest {
     }
 
     @Test
-    fun `answers for every account when none is named`() = testApplication {
-        startServer()
+    fun `answers for every account when none is named`() = apiTest {
         client.openAccount()
         client.openAccount(reference = "ACC-BOB")
         client.record(amount = "10.00")
@@ -249,8 +231,7 @@ class JournalApiTest {
     }
 
     @Test
-    fun `refuses an amount the currency cannot hold`() = testApplication {
-        startServer()
+    fun `refuses an amount it cannot read or would not post`() = apiTest {
         client.openAccount()
 
         val tooPrecise = client.record(amount = "10.505")
@@ -258,7 +239,7 @@ class JournalApiTest {
         val nothing = client.record(amount = "0.00")
 
         assertEquals(HttpStatusCode.BadRequest, tooPrecise.status)
-        assertContains(tooPrecise.bodyAsText(), "decimal places")
+        assertContains(tooPrecise.bodyAsText(), "10.505 is finer than EUR can hold")
         assertEquals(HttpStatusCode.BadRequest, notANumber.status)
         assertContains(notANumber.bodyAsText(), """\"ten\" is not a decimal number""")
         assertEquals(HttpStatusCode.BadRequest, nothing.status)
@@ -266,8 +247,7 @@ class JournalApiTest {
     }
 
     @Test
-    fun `refuses a page nobody could fill`() = testApplication {
-        startServer()
+    fun `refuses a page nobody could fill`() = apiTest {
         client.openAccount()
 
         val empty = client.entriesOf(query = "&limit=0")
@@ -280,8 +260,7 @@ class JournalApiTest {
     }
 
     @Test
-    fun `refuses a cursor and a date it cannot read`() = testApplication {
-        startServer()
+    fun `refuses a cursor and a date it cannot read`() = apiTest {
         client.openAccount()
 
         val cursor = client.entriesOf(query = "&after=not-an-entry")
@@ -294,9 +273,7 @@ class JournalApiTest {
     }
 
     @Test
-    fun `has nothing to move on an account it does not keep`() = testApplication {
-        startServer()
-
+    fun `has nothing to move on an account it does not keep`() = apiTest {
         val recorded = client.record(account = "ACC-NOBODY")
         val listed = client.entriesOf(account = "ACC-NOBODY")
         val balanced = client.balances("?account=ACC-NOBODY")

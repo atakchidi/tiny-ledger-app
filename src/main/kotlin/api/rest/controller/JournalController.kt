@@ -38,7 +38,6 @@ import io.ktor.utils.io.ExperimentalKtorApi
 
 private val entriesSortableBy = Sortable("occurredOn")
 
-// Balances are read off the accounts they belong to, so they order by the same fields an account does.
 private val balancesSortableBy = Sortable("reference")
 
 val journalController = RestController {

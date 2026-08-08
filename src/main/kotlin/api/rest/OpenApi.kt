@@ -14,7 +14,7 @@ import kotlin.reflect.typeOf
  * Derives the OpenAPI schema for [T] from its kotlinx-serialization descriptor, so `describe {}`
  * blocks reference DTO types instead of restating their shape.
  */
-inline fun <reified T> JsonSchemaInference.schemaOf(): JsonSchema =
+inline fun <reified T> JsonSchemaInference.schemaOf() =
     buildSchema(typeOf<T>())
 
 inline fun <reified T> Operation.Builder.accepts() {
