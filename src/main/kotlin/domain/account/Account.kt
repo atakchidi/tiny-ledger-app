@@ -80,11 +80,11 @@ value class AccountReference(val value: String) {
 }
 
 enum class AccountType(val direction: Direction) {
-    ASSET(Direction.DEBIT),
-    EXPENSE(Direction.DEBIT),
-    LIABILITY(Direction.CREDIT),
-    EQUITY(Direction.CREDIT),
-    REVENUE(Direction.CREDIT),
+    ASSET(Direction.DEBIT), // what the business owns: cash, bank balances, receivables, inventory
+    EXPENSE(Direction.DEBIT), // value consumed to run the business: salaries, rent, fees, interest paid
+    LIABILITY(Direction.CREDIT), // what the business owes to others: loans, payables, customer deposits
+    EQUITY(Direction.CREDIT), // owners' residual claim on the business: contributed capital, retained earnings
+    REVENUE(Direction.CREDIT), // value earned from doing business: sales, interest and commission income
     ;
 
     fun direction(effect: Effect) = effect.sideOf(this)
