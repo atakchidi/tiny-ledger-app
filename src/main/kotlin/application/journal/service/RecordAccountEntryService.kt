@@ -29,9 +29,9 @@ class RecordAccountEntryService(
     private val accounts: AccountRepository,
     private val postings: PostingFactory,
     private val store: PostingStore,
-    private val transactions: TransactionManager,
+    private val transaction: TransactionManager,
 ) {
-    fun execute(command: RecordAccountEntry) = transactions {
+    fun execute(command: RecordAccountEntry) = transaction {
         with(command) {
             val holder = accounts.find(account)
             val posting = postings.create(holder, type, amountIn(holder.currency), description, occurredOn)

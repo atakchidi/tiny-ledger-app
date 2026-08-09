@@ -10,19 +10,20 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
-data class Account(
+class Account(
     override val id: AccountId,
     val reference: AccountReference,
     val name: String,
     val currency: Currency,
     val type: AccountType,
     override val createdAt: Instant,
-    override val updatedAt: Instant = createdAt,
-    val balance: Money = Money.zero(currency),
 ) : AggregateRoot<AccountId> {
+    var updatedAt = createdAt
+        private set
 
-    // The counterpart travels back with the lines because the chart opens an account on first use:
-    // resolving it a second time would answer with a different one.
+    var balance = Money.zero(currency)
+        private set
+
     data class Movement(val lines: List<EntryLine>, val accounts: List<Account>)
 
     fun move(movement: MovementType, amount: Money, chart: ChartOfAccounts, clock: Clock): Movement {
@@ -30,21 +31,22 @@ data class Account(
         val line = EntryLine(id, type.direction(movement.effect), accept(amount))
         val counterLine = counterpart.counterLine(line)
 
+        this.project(line, clock)
+        counterpart.project(counterLine, clock)
+
         return Movement(
             lines = listOf(line, counterLine),
-            accounts = listOf(project(line, clock), counterpart.project(counterLine, clock)),
+            accounts = listOf(this, counterpart),
         )
     }
 
     private fun counterLine(line: EntryLine) = EntryLine(id, line.direction.opposite, accept(line.amount))
 
-    private fun project(line: EntryLine, clock: Clock): Account {
+    private fun project(line: EntryLine, clock: Clock) {
         require(line.accountId == id) { "Line for account ${line.accountId} cannot be projected onto $id" }
 
-        return copy(
-            balance = balance + line.signedAgainst(type.direction),
-            updatedAt = clock.now(),
-        )
+        balance += line.signedAgainst(type.direction)
+        updatedAt = clock.now()
     }
 
     private fun accept(amount: Money): Money {

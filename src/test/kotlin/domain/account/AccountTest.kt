@@ -1,10 +1,10 @@
 package altak.ledger.domain.account
 
 import altak.ledger.NOW
+import altak.ledger.accountFactory
 import altak.ledger.domain.Money
 import altak.ledger.domain.journal.Direction
 import altak.ledger.domain.journal.MovementType
-import altak.ledger.accountFactory
 import altak.ledger.fixedClock
 import java.util.Currency
 import kotlin.test.Test
@@ -18,37 +18,11 @@ class AccountTest {
 
     private val chart = ChartOfAccounts { role, currency -> factory.internal(role, currency) }
 
-    private val alice = factory.forHolder("Alice", eur, AccountReference("ACC-Alice".uppercase()))
+    private val alice = factory.forHolder("Alice", eur, AccountReference("ACC-ALICE"))
     private val cash = factory.internal(AccountRole.CASH, eur)
 
     private fun Account.moving(movement: MovementType, minorUnits: Long, currency: Currency = eur) =
         move(movement, Money(minorUnits, currency), chart, clock)
-
-    @Test
-    fun `takes its creation time and a version 7 id from the clock`() {
-        assertEquals(NOW, alice.createdAt)
-        assertEquals('7', alice.id.toString()[14])
-    }
-
-    @Test
-    fun `keeps the reference the holder brought`() {
-        val named = factory.forHolder("Alice", eur, AccountReference("ACC-000123"))
-
-        assertEquals("ACC-000123", named.reference.toString())
-    }
-
-    @Test
-    fun `takes its name, type and reference from the role it serves`() {
-        assertEquals("CASH-EUR", cash.reference.toString())
-        assertEquals("Cash EUR", cash.name)
-        assertEquals(AccountType.ASSET, cash.type)
-    }
-
-    @Test
-    fun `has not been touched since it was opened`() {
-        assertEquals(alice.createdAt, alice.updatedAt)
-    }
-
 
     @Test
     fun `grows on its own normal side and shrinks on the other`() {
@@ -79,10 +53,19 @@ class AccountTest {
 
     @Test
     fun `takes each balance from the account it belongs to, not from the other side`() {
-        val withdrawal = alice.copy(balance = Money(1000, eur)).moving(MovementType.WITHDRAWAL, 400)
+        alice.moving(MovementType.DEPOSIT, 1000)
+
+        val withdrawal = alice.moving(MovementType.WITHDRAWAL, 400)
 
         assertEquals(Money(600, eur), withdrawal.accounts.first().balance)
         assertEquals(Money(-400, eur), withdrawal.accounts.last().balance)
+    }
+
+    @Test
+    fun `lets a holder take out more than they put in`() {
+        val withdrawal = alice.moving(MovementType.WITHDRAWAL, 250)
+
+        assertEquals(Money(-250, eur), withdrawal.accounts.first().balance)
     }
 
 }

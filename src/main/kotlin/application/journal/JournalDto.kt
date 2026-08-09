@@ -6,7 +6,6 @@ import altak.ledger.application.shared.EnumSerializer
 import altak.ledger.application.shared.LocalDateSerializer
 import altak.ledger.application.shared.UuidSerializer
 import altak.ledger.domain.account.AccountType
-import altak.ledger.domain.journal.Direction
 import io.ktor.openapi.JsonSchema
 import altak.ledger.domain.journal.MovementType
 import jakarta.validation.constraints.DecimalMin
@@ -60,7 +59,7 @@ data class RecordAccountEntryDto(
 )
 
 @Serializable
-data class EntryQueryDto(
+data class SearchAccountEntriesDto(
     @JsonSchema.Description("An account id or the reference it is known by outside; every entry if left out")
     @JsonSchema.Example("ACC-000123")
     @field:Length(min=3, max = 36)
@@ -82,8 +81,6 @@ data class ViewEntryDto(
 
     @JsonSchema.Description("The moment the books recorded it")
     val createdAt: Instant,
-
-    val updatedAt: Instant,
 
     @Serializable(with = CurrencySerializer::class)
     @JsonSchema.Description("The currency every line of the entry is in, as an ISO 4217 code")
@@ -126,7 +123,7 @@ data class ViewEntryLineDto(
 )
 
 @Serializable
-data class BalanceQueryDto(
+data class SearchBalancesDto(
     @JsonSchema.Description("An account id or the reference it is known by outside; every account if left out")
     @JsonSchema.Example("ACC-000123")
     @field:Length(min=3, max = 36)

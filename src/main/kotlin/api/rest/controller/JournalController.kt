@@ -13,11 +13,11 @@ import altak.ledger.api.rest.refuses
 import altak.ledger.api.rest.Sortable
 import altak.ledger.api.rest.schemaOf
 import altak.ledger.api.rest.sortedWithin
-import altak.ledger.application.journal.BalanceQueryDto
+import altak.ledger.application.journal.SearchBalancesDto
 import altak.ledger.application.journal.ViewBalanceDto
 import altak.ledger.application.journal.service.ListBalances
 import altak.ledger.application.journal.service.ListBalancesService
-import altak.ledger.application.journal.EntryQueryDto
+import altak.ledger.application.journal.SearchAccountEntriesDto
 import altak.ledger.application.journal.RecordAccountEntryDto
 import altak.ledger.application.journal.ViewEntryDto
 import altak.ledger.application.journal.service.ListAccountEntries
@@ -46,7 +46,7 @@ val journalController = RestController {
         get("/entries") {
             val service = inject<ListAccountEntriesService>()
             val page = call.receiveQuery<CursorDto>().sortedWithin(entriesSortableBy)
-            val entries = ListAccountEntries(call.receiveQuery<EntryQueryDto>(), page)
+            val entries = ListAccountEntries(call.receiveQuery<SearchAccountEntriesDto>(), page)
 
             call.respond(
                 service.execute(entries).asApiResponse()
@@ -99,7 +99,7 @@ val journalController = RestController {
         get("/balances") {
             val service = inject<ListBalancesService>()
             val page = call.receiveQuery<CursorDto>().sortedWithin(balancesSortableBy)
-            val balances = ListBalances(call.receiveQuery<BalanceQueryDto>(), page)
+            val balances = ListBalances(call.receiveQuery<SearchBalancesDto>(), page)
 
             call.respond(
                 service.execute(balances).asApiResponse()

@@ -7,13 +7,12 @@ import kotlinx.datetime.LocalDate
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
-data class JournalEntry(
+class JournalEntry(
     override val id: EntryId,
     val description: String,
     val occurredOn: LocalDate,
     override val createdAt: Instant,
     val lines: List<EntryLine>,
-    override val updatedAt: Instant = createdAt,
 ) : AggregateRoot<EntryId> {
 
     val currency get() = lines.first().amount.currency

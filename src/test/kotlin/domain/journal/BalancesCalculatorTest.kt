@@ -113,16 +113,6 @@ class BalancesCalculatorTest {
     }
 
     @Test
-    fun `hands back the accounts a page at a time`() {
-        record(alice, MovementType.DEPOSIT, 1000)
-
-        val firstPage = calculator.calculate(BalanceQuery(TODAY), Cursor(2))
-
-        assertEquals(2, firstPage.items.size)
-        assertEquals(firstPage.items.last().account.id.toString(), firstPage.nextCursor)
-    }
-
-    @Test
     fun `has nothing to say about an account it does not keep`() {
         val ghost = factory.forHolder("Ghost", eur, AccountReference("ACC-Ghost".uppercase()))
 

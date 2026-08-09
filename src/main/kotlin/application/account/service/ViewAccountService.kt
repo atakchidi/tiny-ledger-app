@@ -12,7 +12,7 @@ class ViewAccountService(
     private val transaction: TransactionManager,
 ) {
 
-    fun execute(command: ViewAccount) = transaction {
-        with(command) { accounts.find(id).toViewDto() }
+    fun execute(query: ViewAccount) = transaction {
+        with(query) { accounts.find(id).toViewDto() }
     }
 }

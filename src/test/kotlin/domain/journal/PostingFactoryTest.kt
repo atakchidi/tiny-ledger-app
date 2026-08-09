@@ -67,7 +67,8 @@ class PostingFactoryTest {
     @Test
     fun `a counterpart of any category takes the side opposite the subject`() {
         AccountType.entries.forEach { type ->
-            val counterpart = factory.internal(AccountRole.CASH, eur).copy(type = type)
+            val cash = factory.internal(AccountRole.CASH, eur)
+            val counterpart = Account(cash.id, cash.reference, cash.name, cash.currency, type, cash.createdAt)
             val posting = PostingFactory({ _, _ -> counterpart }, journalEntryFactory(clock), clock)
                 .create(alice, MovementType.DEPOSIT, Money(1000, eur))
 

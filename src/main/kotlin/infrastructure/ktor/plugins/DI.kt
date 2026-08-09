@@ -40,7 +40,7 @@ fun Application.configureDependencyInjection() {
         provide<TimeZone> { TimeZone.currentSystemDefault() }
         provide(::LedgerCalendar)
         provide<IdGenerator>(::UuidV7Generator)
-        provide<ValidatorFactory> { validatorFactory(resolve<Clock>(), resolve<TimeZone>()) }
+        provide(::validatorFactory)
         provide<Validator> { resolve<ValidatorFactory>().validator }
         provide<AccountRepository> { InMemoryAccountRepository() }
         provide<JournalEntryRepository> { InMemoryJournalEntryRepository() }

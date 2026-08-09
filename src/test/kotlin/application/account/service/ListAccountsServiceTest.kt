@@ -1,20 +1,19 @@
-package altak.ledger.application.account
+package altak.ledger.application.account.service
 
 import altak.ledger.CountingTransactionManager
-import altak.ledger.application.account.service.ListAccounts
-import altak.ledger.application.account.service.ListAccountsService
+import altak.ledger.accountFactory
 import altak.ledger.application.shared.CursorDto
 import altak.ledger.domain.Money
 import altak.ledger.domain.account.AccountReference
 import altak.ledger.domain.account.AccountRole
 import altak.ledger.domain.account.AccountType
-import altak.ledger.accountFactory
+import altak.ledger.domain.account.ChartOfAccounts
+import altak.ledger.domain.journal.MovementType
 import altak.ledger.fixedClock
 import altak.ledger.infrastructure.persistence.InMemoryAccountRepository
 import java.util.Currency
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 
 class ListAccountsServiceTest {
 
@@ -25,35 +24,24 @@ class ListAccountsServiceTest {
     private val transactions = CountingTransactionManager()
     private val service = ListAccountsService(accounts, transactions)
 
-    private fun list(cursor: CursorDto = CursorDto()) = service.execute(ListAccounts(cursor))
+    private fun list() = service.execute(ListAccounts(CursorDto()))
 
     @Test
     fun `has nothing to list on an empty ledger`() {
         assertEquals(emptyList(), list().items)
-        assertNull(list().nextCursor)
     }
 
     @Test
-    fun `lists holder accounts and the cash behind them alike`() {
-        factory.forHolder("Alice", eur, AccountReference("ACC-Alice".uppercase())).also(accounts::save)
-        factory.internal(AccountRole.CASH, eur)
-            .copy(balance = Money(1050, eur))
-            .also(accounts::save)
+    fun `lists holder accounts and the cash behind them alike, each with what it stands at`() {
+        val alice = factory.forHolder("Alice", eur, AccountReference("ACC-ALICE")).also(accounts::save)
+        val cash = factory.internal(AccountRole.CASH, eur).also(accounts::save)
+        alice.move(MovementType.DEPOSIT, Money(1050, eur), ChartOfAccounts { _, _ -> cash }, clock)
 
         val listed = list().items
 
         assertEquals(setOf("Alice", "Cash EUR"), listed.map { it.name }.toSet())
         assertEquals("10.50", listed.single { it.type == AccountType.ASSET }.balance)
-    }
-
-    @Test
-    fun `hands the accounts back a page at a time`() {
-        repeat(3) { factory.forHolder("Holder $it", eur, AccountReference("ACC-HOLDER-$it")).also(accounts::save) }
-
-        val page = list(CursorDto(limit = 2))
-
-        assertEquals(2, page.items.size)
-        assertEquals(page.items.last().id.toString(), page.nextCursor)
+        assertEquals("10.50", listed.single { it.type == AccountType.LIABILITY }.balance)
     }
 
     @Test

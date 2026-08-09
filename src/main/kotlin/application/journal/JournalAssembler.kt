@@ -13,7 +13,6 @@ fun JournalEntry.toViewDto(accounts: Accounts) = ViewEntryDto(
     description = description,
     occurredOn = occurredOn,
     createdAt = createdAt,
-    updatedAt = updatedAt,
     currency = currency,
     totalDebit = debited.toPlainString(),
     totalCredit = credited.toPlainString(),

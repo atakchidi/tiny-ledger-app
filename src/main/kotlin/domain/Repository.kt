@@ -14,8 +14,6 @@ data class Cursor<ID>(
     }
 }
 
-// Id is the fallback because it is the one field every record has uniquely, which is what a cursor
-// needs to resume from.
 data class Sorting(val field: String = ID, val direction: Direction = Direction.ASC) {
 
     enum class Direction { ASC, DESC }

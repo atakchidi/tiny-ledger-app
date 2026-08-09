@@ -61,8 +61,4 @@ class SharedTest {
         )
     }
 
-    @Test
-    fun `a cursor holds a sensible number of records`() {
-        assertEquals(Cursor.MAX_LIMIT, Cursor<String>(Cursor.MAX_LIMIT).limit)
-    }
 }

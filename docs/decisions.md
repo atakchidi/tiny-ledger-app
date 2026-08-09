@@ -260,3 +260,97 @@ Validation is therefore split by who can judge it:
 | the serializers | an unreadable uuid, date, decimal or currency code — `MalformedValue`, answered `400` |
 | the application services | what needs the ledger read first: an account that exists, a reference not already open, an amount the account's currency can hold |
 | `require` in the domain | invariants — unreachable from a request by construction |
+
+## What the tests cover, and what they do not
+
+The shape of the suite follows from the model above rather than from a coverage target. Two ideas
+decide every test: data is validated once on the way in and trusted from there down, and each thing
+is tested where it is implemented.
+
+### Rules flow down, and each layer trusts the one above
+
+A request is judged at the edge by the table above. Below that edge the data is, by construction,
+already valid, so nothing re-checks it. That is what makes the `require` in an aggregate or value
+object an *assertion* rather than a rule: it is not there to reject a caller, it is there so that if
+someone ever breaks the contract the system blows up immediately, loudly, in the logs, and we go and
+fix the code. It should never fire in a running system.
+
+So the two kinds of failure are tested in opposite ways:
+
+| | raised by | answers | tested? |
+|---|---|---|---|
+| **contract** | a named exception we declare — `AccountNotFound`, `AccountAlreadyOpen`, `AmountTooPrecise`, `MalformedValue`, `Sorting.UnknownField`, `RequestValidationException` | a status and a message the caller can act on | **yes** — the system is expected to handle these, so each is asserted with its status *and* its full message |
+| **assertion** | `require`/`check` — `IllegalArgumentException`, `IllegalStateException` | `500`, deliberately, saying nothing about the inside | **no** — testing it would be testing a situation that must never happen |
+
+No test calls a constructor with bad arguments to watch it throw — not an unbalanced `JournalEntry`,
+not `Account` given a foreign currency, not `Money` adding two currencies, not `AccountReference`
+built from `acc-alice`. Those are the guards. Where the same rule *is* a real rule about a request —
+the reference format is — it is asserted at the edge that judges it, not at the guard behind it.
+
+The obligation this creates is the inverse one: **a caller must not be able to reach a `require`.**
+Every guard reachable from a request has an edge check in front of it, and the test lives on that
+edge, where the input is genuinely untrusted:
+
+| guard in the domain | reached by | edge check that answers first |
+|---|---|---|
+| `Money` fits the currency | `amount` | `Money.fits` → `AmountTooPrecise`, `400` |
+| `EntryLine` is positive | `amount` | `@DecimalMin`, `400` |
+| entry not dated after today | `occurredOn` | `@PastOrPresent` on the ledger calendar, `400` |
+| `Cursor` page size | `limit` | `@Min`/`@Max`, `400` |
+| `AccountReference` format | `reference` | `@Pattern`, `400` |
+| entry balances, one currency, two lines | — | unreachable: a movement generates both lines itself |
+| `Account` currency and line ownership | — | unreachable: a request names no currency and no line |
+
+The last two rows are why those invariants have no test anywhere: there is no input that produces
+them. `StatusPagesTest` covers the pipeline itself — an unreadable, incomplete or wrongly typed body
+comes back `400`, not `500`.
+
+### One home per building block
+
+Nothing generic is re-tested per use case or per route. If the same cursor is used everywhere, then
+paging works everywhere once it is proven once.
+
+| what | tested in |
+|---|---|
+| paging and ordering — cursor, `nextCursor`, sort field, direction | `PagingTest`, against `pageFrom` |
+| the fields a route will order by | `SortableTest`, plus one assertion per route for the list it publishes |
+| amounts, precision, minor units | `SharedTest` |
+| reading and writing the wire types | `SerializationTest` |
+| dating against the ledger's own calendar | `ValidatorsTest` |
+| the debit/credit rule of a movement | `AccountTest`, `PostingFactoryTest` |
+| what a balance *is* | `BalancesCalculatorTest` |
+| id, reference and not-found resolution | `AccountLookupTest` |
+
+Each layer is then tested only for what it itself does:
+
+- **domain** — the rules: how a movement picks its sides, what a balance folds to, what a factory
+  derives. No invariants, per above.
+- **application services** — the use cases. They resolve, delegate and assemble a DTO, so that is
+  what is asserted, on objects rather than JSON. A service that only passes `sort` through to a
+  repository has no sorting test.
+- **infrastructure** — the mechanism: indexing in the repositories, `pageFrom`, the chart opening an
+  account once per role and currency, the store writing both sides.
+- **api** — that the endpoint reaches its use case and the shape it answers with. It is IO back and
+  forth: create, view, list, the status a refusal comes back as. Ledger behaviour is not re-tested
+  here. Paging appears only as a check that the route is wired to a use case that *does* page — a
+  `limit` takes effect and `nextCursor` is carried — which catches a route that forgot to, without
+  restating what `PagingTest` already proves.
+
+An error is never asserted by status alone, and never by substring: a bare `400` hides the wrong
+error answering, or a stack trace in the body. Responses are asserted field by field off the parsed
+JSON, or whole when they are short and deterministic — which errors are, being `{"errors":[…]}`.
+
+Test files mirror `src/main/kotlin` one to one: `Foo.kt` is tested by `FooTest.kt` in the same
+package. Where a file has no test — DTOs, ports, Ktor plugin wiring — it is because it carries no
+behaviour of its own.
+
+### Two invariants that *are* asserted, because they are claims about the whole
+
+The ledger-wide properties this document opens with are not guarded by any `require`, so they are
+tested as the statements they are:
+
+- `total debits == total credits` — after a run of movements the cash the ledger holds equals what it
+  owes (`BalancesCalculatorTest`).
+- the projection agrees with the journal — every account's `balance` read model is compared against
+  what `BalancesCalculator` folds from the entries (`RecordAccountEntryServiceTest`). If those ever
+  disagree the journal wins, so the test is the thing that would tell us.

@@ -14,16 +14,15 @@ interface AggregateRoot<ID> {
     val id: ID
 
     val createdAt: Instant
-
-    val updatedAt: Instant
 }
 
 data class Money(val minorUnits: BigInteger, val currency: Currency) {
 
     constructor(minorUnits: Long, currency: Currency) : this(BigInteger.valueOf(minorUnits), currency)
 
-    constructor(amount: BigDecimal, currency: Currency) :
-        this(amount.setScale(currency.fractionDigits).unscaledValue(), currency)
+    constructor(amount: BigDecimal, currency: Currency) : this(amount.setScale(currency.fractionDigits).unscaledValue(), currency) {
+        require(fits(amount, currency)) { "$amount is finer than ${currency.currencyCode} can hold" }
+    }
 
     val isPositive: Boolean get() = minorUnits.signum() > 0
 

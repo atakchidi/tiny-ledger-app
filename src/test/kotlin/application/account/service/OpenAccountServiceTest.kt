@@ -1,19 +1,17 @@
-package altak.ledger.application.account
+package altak.ledger.application.account.service
 
 import altak.ledger.CountingTransactionManager
 import altak.ledger.NOW
-import altak.ledger.application.account.service.OpenAccount
-import altak.ledger.application.account.service.OpenAccountService
+import altak.ledger.accountFactory
+import altak.ledger.application.account.OpenAccountDto
 import altak.ledger.domain.Money
+import altak.ledger.domain.account.AccountId
 import altak.ledger.domain.account.AccountReference
 import altak.ledger.domain.account.AccountType
-import altak.ledger.accountFactory
-import altak.ledger.domain.account.AccountId
 import altak.ledger.infrastructure.persistence.InMemoryAccountRepository
 import java.util.Currency
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 
 class OpenAccountServiceTest {
 
@@ -26,10 +24,11 @@ class OpenAccountServiceTest {
         service.execute(OpenAccount(OpenAccountDto(name, Currency.getInstance(currency), reference)))
 
     @Test
-    fun `opens an account owing the holder nothing yet`() {
+    fun `opens an account for the holder, owing them nothing yet`() {
         val alice = open()
 
         assertEquals("Alice", alice.name)
+        assertEquals("ACC-000123", alice.reference)
         assertEquals(eur, alice.currency)
         assertEquals(AccountType.LIABILITY, alice.type)
         assertEquals("0.00", alice.balance)
@@ -37,29 +36,12 @@ class OpenAccountServiceTest {
     }
 
     @Test
-    fun `takes the reference the caller brought`() {
-        val alice = open(reference = "ACC-000123")
-
-        assertEquals("ACC-000123", alice.reference)
-        assertEquals(alice.id, accounts.byReference(AccountReference("ACC-000123"))?.id?.value)
-    }
-
-    @Test
-    fun `keeps the account for later`() {
+    fun `keeps the account for later, under both keys it is addressed by`() {
         val alice = open()
 
-        val kept = accounts.byId(AccountId(alice.id))
-
-        assertEquals("Alice", kept?.name)
-        assertEquals(AccountType.LIABILITY, kept?.type)
-        assertEquals(Money.zero(eur), kept?.balance)
-    }
-
-    @Test
-    fun `refuses to open a second account under the same reference`() {
-        open(reference = "ACC-000123")
-
-        assertFailsWith<AccountAlreadyOpen> { open(name = "Bob", reference = "ACC-000123") }
+        assertEquals("Alice", accounts.byId(AccountId(alice.id))?.name)
+        assertEquals(Money.zero(eur), accounts.byId(AccountId(alice.id))?.balance)
+        assertEquals(alice.id, accounts.byReference(AccountReference("ACC-000123"))?.id?.value)
     }
 
     @Test

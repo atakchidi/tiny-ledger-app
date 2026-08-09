@@ -20,7 +20,7 @@ private const val MINIMUM_COMPRESSED_BYTES = 1024L
 private val openApiSource = OpenApiDocSource.Routing(contentType = ContentType.Application.Json)
 
 private val openApiBaseDoc = OpenApiDoc.build {
-    info = OpenApiInfo(title = "ledger-app", version = "1.0.0-SNAPSHOT")
+    info = OpenApiInfo(title = "ledger-app", version = "1.0.0")
 }
 
 @OptIn(ExperimentalKtorApi::class)

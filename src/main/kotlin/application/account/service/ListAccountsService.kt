@@ -12,9 +12,9 @@ private val ListAccounts.page get() = cursor.toDomain(::AccountId)
 
 class ListAccountsService(
     private val accounts: AccountRepository,
-    private val transactions: TransactionManager,
+    private val transaction: TransactionManager,
 ) {
-    fun execute(command: ListAccounts) = transactions {
-        with(command) { accounts.all(page).map { it.toViewDto() } }
+    fun execute(query: ListAccounts) = transaction {
+        with(query) { accounts.all(page).map { it.toViewDto() } }
     }
 }
